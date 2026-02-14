@@ -1,0 +1,52 @@
+{
+  "publishers": [
+    "Addison-Wesley Professional"
+  ],
+  "number_of_pages": 395,
+  "covers": [
+    10827044,
+    -1
+  ],
+  "key": "/books/OL7408317M",
+  "authors": [
+    {
+      "key": "/authors/OL1515521A"
+    }
+  ],
+  "subtitle": "Elements of Reusable Object-Oriented Software",
+  "source_records": [
+    "bwb:9780201633610",
+    "idb:9780201633610"
+  ],
+  "title": "Design Patterns",
+  "identifiers": {},
+  "languages": [
+    {
+      "key": "/languages/eng"
+    }
+  ],
+  "publish_date": "January 15, 1995",
+  "works": [
+    {
+      "key": "/works/OL6030812W"
+    }
+  ],
+  "type": {
+    "key": "/type/edition"
+  },
+  "isbn_13": [
+    "9780201633610"
+  ],
+  "classifications": {},
+  "description": "A catalog of simple and succinct solutions to commonly occurring design problems.",
+  "latest_revision": 32,
+  "revision": 32,
+  "created": {
+    "type": "/type/datetime",
+    "value": "2008-04-29T13:35:46.876380"
+  },
+  "last_modified": {
+    "type": "/type/datetime",
+    "value": "2024-07-18T15:14:45.520579"
+  }
+}

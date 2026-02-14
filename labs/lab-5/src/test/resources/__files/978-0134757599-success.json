@@ -1,0 +1,47 @@
+{
+  "publishers": [
+    "Addision-Wesley"
+  ],
+  "languages": [
+    {
+      "key": "/languages/eng"
+    }
+  ],
+  "subtitle": "Improving the Design of Existing Code",
+  "description": "2nd edition",
+  "source_records": [
+    "amazon:0134757599",
+    "bwb:9780134757599",
+    "idb:9780134757599"
+  ],
+  "title": "Refactoring",
+  "identifiers": {},
+  "covers": [
+    8507565
+  ],
+  "isbn_13": [
+    "9780134757599"
+  ],
+  "publish_date": "2018",
+  "key": "/books/OL26629721M",
+  "classifications": {},
+  "works": [
+    {
+      "key": "/works/OL18146365W"
+    }
+  ],
+  "type": {
+    "key": "/type/edition"
+  },
+  "number_of_pages": 448,
+  "latest_revision": 8,
+  "revision": 8,
+  "created": {
+    "type": "/type/datetime",
+    "value": "2018-12-29T22:32:47.327443"
+  },
+  "last_modified": {
+    "type": "/type/datetime",
+    "value": "2024-07-21T01:10:21.777211"
+  }
+}
