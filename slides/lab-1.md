@@ -3,7 +3,7 @@ marp: true
 theme: pragmatech
 ---
 
-![bg](./assets/barcelona-spring-io.jpg)
+![bg](./assets/digdir-cover.jpg)
 
 ---
 
@@ -17,9 +17,9 @@ Question: Who is writing tests manually and who is enjoying it?
 
 # Testing Spring Boot Applications Demystified
 
-## Full-Day Workshop
+## First Workshop Day
 
-_Spring I/O Conference Workshop 21.05.2025_
+_Digdir Workshop 02.03.2026_
 
 Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](https://x.com/rieckpil)
 
@@ -34,7 +34,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 -->
 
-<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Spring I/O 21.05.2025' -->
+<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 02.03.2026' -->
 <!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
 # Organization
@@ -45,6 +45,11 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
   - Java 21
   - Docker
   - GitHub Account (preferably a personal)
+
+---
+
+![h:500 center](assets/workshop-agenda.png)
+
 
 ---
 
