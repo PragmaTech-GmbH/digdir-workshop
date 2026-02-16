@@ -1,7 +1,7 @@
 package pragmatech.digital.workshops.lab1.util;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,8 @@ public class DefaultTimeProvider implements TimeProvider {
   }
 
   @Override
-  public LocalDateTime getCurrentDateTime() {
-    return LocalDateTime.now();
+  public Instant getCurrentInstant() {
+    return Instant.now();
   }
+
 }

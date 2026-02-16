@@ -5,6 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -40,12 +41,12 @@ class Solution2JUnitExtensionTest {
     }
 
     @Override
-    public void beforeTestExecution(ExtensionContext context) {
+    public void beforeTestExecution(@NonNull ExtensionContext context) {
       getStore(context).put("start", System.currentTimeMillis());
     }
 
     @Override
-    public void afterTestExecution(ExtensionContext context) {
+    public void afterTestExecution(@NonNull ExtensionContext context) {
       long start = getStore(context).remove("start", Long.class);
       long duration = System.currentTimeMillis() - start;
 
@@ -66,12 +67,12 @@ class Solution2JUnitExtensionTest {
   static class ConfigurableSlowTestDetector implements BeforeTestExecutionCallback, AfterTestExecutionCallback {
 
     @Override
-    public void beforeTestExecution(ExtensionContext context) {
+    public void beforeTestExecution(@NonNull ExtensionContext context) {
       getStore(context).put("start", System.currentTimeMillis());
     }
 
     @Override
-    public void afterTestExecution(ExtensionContext context) {
+    public void afterTestExecution(@NonNull ExtensionContext context) {
       long start = getStore(context).remove("start", Long.class);
       long duration = System.currentTimeMillis() - start;
 
@@ -114,7 +115,8 @@ class Solution2JUnitExtensionTest {
     void fastTest() {
       // This test should run quickly
       int result = 1 + 1;
-      assert result == 2;
+
+      assertEquals(2, result);
     }
 
     @Test
@@ -123,8 +125,8 @@ class Solution2JUnitExtensionTest {
       // This test is artificially slowed down to exceed the threshold
       Thread.sleep(150);
       int result = 1 + 1;
-      assertEquals(2, result);
 
+      assertEquals(2, result);
     }
   }
 

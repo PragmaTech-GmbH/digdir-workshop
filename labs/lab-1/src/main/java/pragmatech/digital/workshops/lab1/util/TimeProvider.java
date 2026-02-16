@@ -1,5 +1,6 @@
 package pragmatech.digital.workshops.lab1.util;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -16,9 +17,9 @@ public interface TimeProvider {
   LocalDate getCurrentDate();
 
   /**
-   * Returns the current date and time.
+   * Returns the current instant.
    *
-   * @return the current date and time
+   * @return the current instant
    */
-  LocalDateTime getCurrentDateTime();
+  Instant getCurrentInstant();
 }

@@ -1,5 +1,6 @@
 package pragmatech.digital.workshops.lab1.domain;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 /**
@@ -11,14 +12,15 @@ public class Book {
   private String isbn;
   private String title;
   private String author;
-  private LocalDate publishedDate;
+  private LocalDate publicationDate;
+  private Instant createdAt;
   private BookStatus status;
 
   public Book(Long id) {
     this.id = id;
   }
 
-  public Book(String isbn, String title, String author, LocalDate publishedDate) {
+  public Book(String isbn, String title, String author, LocalDate publicationDate, Instant createdAt) {
     if (isbn == null || isbn.isBlank()) {
       throw new IllegalArgumentException("ISBN cannot be null or blank");
     }
@@ -28,14 +30,18 @@ public class Book {
     if (author == null || author.isBlank()) {
       throw new IllegalArgumentException("Author cannot be null or blank");
     }
-    if (publishedDate == null) {
-      throw new IllegalArgumentException("Published date cannot be null");
+    if (publicationDate == null) {
+      throw new IllegalArgumentException("Publication date cannot be null");
+    }
+    if (createdAt == null) {
+      throw new IllegalArgumentException("Creation timestamp cannot be null");
     }
 
     this.isbn = isbn;
     this.title = title;
     this.author = author;
-    this.publishedDate = publishedDate;
+    this.publicationDate = publicationDate;
+    this.createdAt = createdAt;
     this.status = BookStatus.AVAILABLE;
   }
 
@@ -66,14 +72,14 @@ public class Book {
   }
 
   public LocalDate getPublishedDate() {
-    return publishedDate;
+    return publicationDate;
   }
 
   public void setPublishedDate(LocalDate publishedDate) {
     if (publishedDate == null) {
       throw new IllegalArgumentException("Published date cannot be null");
     }
-    this.publishedDate = publishedDate;
+    this.publicationDate = publishedDate;
   }
 
   public BookStatus getStatus() {
@@ -115,9 +121,13 @@ public class Book {
       "isbn='" + isbn + '\'' +
       ", title='" + title + '\'' +
       ", author='" + author + '\'' +
-      ", publishedDate=" + publishedDate +
+      ", publishedDate=" + publicationDate +
       ", status=" + status +
       '}';
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
   }
 
   public Long getId() {

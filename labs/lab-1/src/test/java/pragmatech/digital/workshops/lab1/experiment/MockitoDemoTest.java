@@ -32,7 +32,7 @@ class MockitoDemoTest {
     when(bookRepository.save(any())).thenReturn(new Book(1L));
 
     // Act
-    Long id = bookService.create("1234", "Test Book", "Author");
+    Long id = bookService.registerBook("1234", "Test Book", "Author");
 
     // Assert
     assertEquals(1L, id);
