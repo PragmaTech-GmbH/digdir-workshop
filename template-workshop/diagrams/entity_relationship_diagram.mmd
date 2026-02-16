@@ -1,0 +1,50 @@
+classDiagram
+    class Book {
+        +String isbn
+        +String title
+        +String author
+        +LocalDate publishedDate
+        +BookStatus status
+    }
+    
+    class LibraryUser {
+        +Long id
+        +String name
+        +String email
+        +String membershipNumber
+        +LocalDate memberSince
+    }
+    
+    class BookLoan {
+        +Long id
+        +LocalDate loanDate
+        +LocalDate dueDate
+        +LocalDate returnDate
+    }
+    
+    class BookReview {
+        +Long id
+        +String reviewerName
+        +Integer rating
+        +String comment
+        +LocalDateTime reviewDate
+    }
+    
+    class BookStatus {
+        <<enumeration>>
+        AVAILABLE
+        BORROWED
+        RESERVED
+        LOST
+        UNDER_REPAIR
+    }
+    
+    Book "1" *-- "0..*" BookReview : has
+    Book "1" -- "0..*" BookLoan : is loaned through
+    LibraryUser "1" -- "0..*" BookLoan : borrows
+    Book -- BookStatus : has
+    
+    %% Notes
+    note for Book "ISBN is the primary key\nStatus changes based on loans"
+    note for BookLoan "When returnDate is null,\nthe book is still on loan"
+    note for BookReview "Rating is from 1 to 5 stars"

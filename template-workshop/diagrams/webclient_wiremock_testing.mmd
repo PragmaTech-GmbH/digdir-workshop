@@ -1,0 +1,46 @@
+flowchart LR
+    subgraph TestEnvironment["Test Environment"]
+        subgraph TestClass["JUnit Test"]
+            TestAnnotation["@SpringBootTest"]
+            WireMockExt["WireMockExtension"]
+        end
+        
+        subgraph SpringApp["Spring Boot Application"]
+            subgraph Service["Service Using WebClient"]
+                WebClient
+            end
+            Config["Configuration"]
+        end
+        
+        subgraph WireMock["WireMock Server"]
+            MockEndpoints["Mock Endpoints"]
+            RequestMatchers["Request Matchers"]
+            ResponseStubs["Response Stubs"]
+            Verification
+        end
+        
+        ExternalService["Real External Service (Replaced)\nExternal Book API\n(Not used in tests)"]
+    end
+    
+    %% Connections in normal operation
+    ExternalService -->|"Real requests (production)"| SpringApp
+    
+    %% Connections in test
+    TestClass -->|"Initiates test"| SpringApp
+    TestClass -->|"Configures stubs"| WireMock
+    WireMockExt -->|"Controls"| WireMock
+    Config -->|"Configures URL"| WebClient
+    WebClient -->|"Mock HTTP requests"| WireMock
+    WireMock -->|"Mock responses"| WebClient
+    TestClass -->|"Verifies requests"| WireMock
+    
+    %% Notes
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px
+    
+    WireMockNote["WireMock capabilities:\n- Stub HTTP responses\n- Match requests by URL, headers, body\n- Return different status codes\n- Simulate delays and errors\n- Verify request counts and patterns"]
+    TestClassNote["Testing approach:\n1. Start WireMock server\n2. Configure mock responses\n3. Execute service code using WebClient\n4. Verify expected behavior\n5. Optionally verify request patterns"]
+    WebClientNote["WebClient is configured to use\nWireMock server URL instead of\nreal service URL during tests"]
+    
+    WireMock --- WireMockNote
+    TestClass --- TestClassNote
+    WebClient --- WebClientNote

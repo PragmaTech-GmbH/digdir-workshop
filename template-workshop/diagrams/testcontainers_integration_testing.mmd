@@ -1,0 +1,41 @@
+flowchart TB
+    subgraph HostMachine["Host Machine"]
+        subgraph JUnit["JUnit Test Process"]
+            TestClass["@SpringBootTest\nwith @Testcontainers"]
+            ContainerRef["@Container\npostgresContainer"]
+            
+            TestClass --> ContainerRef
+        end
+        
+        subgraph Docker["Docker Engine"]
+            subgraph PostgresContainer["PostgreSQL Container"]
+                Postgres["postgres:14-alpine"]
+            end
+        end
+        
+        subgraph SpringBootApp["Spring Boot Application under Test"]
+            SpringContext["Spring Context"]
+            ConnectionPool["Database Connection Pool"]
+            
+            SpringContext --> ConnectionPool
+        end
+        
+        %% Connections
+        ContainerRef -->|"creates & configures"| PostgresContainer
+        ConnectionPool -->|"connects to"| Postgres
+    end
+    
+    %% Notes
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px
+    
+    ContainerRefNote["Container lifecycle is managed\nby the test class"]
+    PostgresContainerNote["- Random mapped port\n- Clean isolated instance\n- Follows container lifecycle"]
+    ConnectionPoolNote["Dynamic properties injected from\ncontainer configuration:\n- spring.datasource.url\n- spring.datasource.username\n- spring.datasource.password"]
+    JUnitNote["Benefits of TestContainers:\n- Real database for testing\n- Isolated environment\n- No external dependencies to set up\n- Clean state for each test run\n- Works with any database\n- Can test database migrations"]
+    DockerNote["TestContainers supports:\n- Databases\n- Message Brokers\n- Web Servers\n- Custom containers\n- Container networks\n- Volume mounts\n- Environment variables"]
+    
+    ContainerRef --- ContainerRefNote
+    PostgresContainer --- PostgresContainerNote
+    ConnectionPool --- ConnectionPoolNote
+    JUnit --- JUnitNote
+    Docker --- DockerNote

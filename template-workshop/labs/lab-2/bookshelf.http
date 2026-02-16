@@ -1,0 +1,9 @@
+### All Books
+GET http://localhost:8080/api/books
+Accept: application/json
+
+### Books by id
+GET http://localhost:8080/api/books/1
+Accept: application/json
+
+### Create book (TODO with basic auth and payload)

@@ -1,0 +1,63 @@
+flowchart TB
+    subgraph FullApp["@SpringBootTest"]
+        Controllers
+        Services
+        Repositories
+        SecurityFilters["Security Filters"]
+        MessageConverters
+        OtherComponents["Other Components"]
+        
+        Controllers --> Services
+        Services --> Repositories
+    end
+    
+    subgraph WebSlice["@WebMvcTest"]
+        WebLayerOnly["Web Layer Only"]
+        MockMvc
+        ControllerUnderTest["Controller Under Test"]
+        WebSecurityFilters["Security Filters"]
+        WebMessageConverters["MessageConverters"]
+        MockServices["Mock Services"]
+        
+        WebLayerOnly -.-> ControllerUnderTest
+        WebLayerOnly -.-> WebSecurityFilters
+        WebLayerOnly -.-> WebMessageConverters
+        ControllerUnderTest -.-> MockServices
+    end
+    
+    subgraph DataSlice["@DataJpaTest"]
+        DataLayerOnly["Data Layer Only"]
+        RepositoryUnderTest["Repository Under Test"]
+        EntityManager
+        DataSource
+        TestEntityManager
+        
+        DataLayerOnly -.-> RepositoryUnderTest
+        RepositoryUnderTest -.-> EntityManager
+        TestEntityManager -.-> EntityManager
+        EntityManager -.-> DataSource
+    end
+    
+    %% Notes
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px
+    classDef fullAppNote fill:#FFCDD2,stroke:#333,stroke-width:1px
+    classDef webSliceNote fill:#DCEDC8,stroke:#333,stroke-width:1px
+    classDef dataSliceNote fill:#BBDEFB,stroke:#333,stroke-width:1px
+    
+    FullAppNote["@SpringBootTest loads the entire application context.\nGood for integration tests, but slower\nand more resource-intensive."]:::fullAppNote
+    WebSliceNote["@WebMvcTest loads only the web layer components.\nFaster than @SpringBootTest.\nServices are mocked."]:::webSliceNote
+    DataSliceNote["@DataJpaTest loads only the data layer components.\nUses an in-memory database by default.\nTransactions are rolled back after each test."]:::dataSliceNote
+    
+    FullApp --- FullAppNote
+    WebSlice --- WebSliceNote
+    DataSlice --- DataSliceNote
+    
+    %% Other test slices
+    subgraph OtherSlices["Other Test Slices"]
+        JsonTest["@JsonTest - JSON serialization/deserialization"]
+        RestClientTest["@RestClientTest - REST clients"]
+        WebFluxTest["@WebFluxTest - WebFlux controllers"]
+        JdbcTest["@JdbcTest - JDBC data access"]
+        DataMongoTest["@DataMongoTest - MongoDB repositories"]
+        DataRedisTest["@DataRedisTest - Redis repositories"]
+    end
