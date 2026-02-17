@@ -1,36 +1,44 @@
 package pragmatech.digital.workshops.lab2.repository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 import pragmatech.digital.workshops.lab2.entity.Book;
 
-public interface BookRepository extends JpaRepository<Book, Long> {
+@Repository
+public class BookRepository {
 
-  /**
-   * PostgreSQL-specific: Full text search on book titles with ranking.
-   * Uses PostgreSQL's to_tsvector and to_tsquery for sophisticated text searching
-   * with ranking based on relevance.
-   *
-   * @param searchTerms the search terms (e.g. "adventure dragons fantasy")
-   * @return list of books matching the search terms, ordered by relevance
-   */
-  @Query(value = """
-    SELECT * FROM books
-    WHERE to_tsvector('english', title) @@ plainto_tsquery('english', :searchTerms)
-    ORDER BY ts_rank(to_tsvector('english', title), plainto_tsquery('english', :searchTerms)) DESC
-    """,
-    nativeQuery = true)
-  List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerms);
+  private final List<Book> books = new ArrayList<>();
+  private final AtomicLong idCounter = new AtomicLong(1);
 
-  /**
-   * Find a book by its ISBN.
-   *
-   * @param isbn the ISBN to search for
-   * @return the book with the given ISBN, if found
-   */
-  Optional<Book> findByIsbn(String isbn);
+  public Book save(Book book) {
+    if (book.getId() == null) {
+      book.setId(idCounter.getAndIncrement());
+      books.add(book);
+    }
+    return book;
+  }
+
+  public List<Book> findAll() {
+    return List.copyOf(books);
+  }
+
+  public Optional<Book> findById(Long id) {
+    return books.stream()
+      .filter(book -> book.getId().equals(id))
+      .findFirst();
+  }
+
+  public Optional<Book> findByIsbn(String isbn) {
+    return books.stream()
+      .filter(book -> book.getIsbn().equals(isbn))
+      .findFirst();
+  }
+
+  public void delete(Book book) {
+    books.remove(book);
+  }
 }

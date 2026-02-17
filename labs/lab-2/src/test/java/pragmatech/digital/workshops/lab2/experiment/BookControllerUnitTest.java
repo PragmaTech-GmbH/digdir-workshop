@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
  * It demonstrates what can be tested with plain JUnit and Mockito without using Spring's test infrastructure.
  * This approach is fast and focused on the controller's logic in isolation.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class})
 class BookControllerUnitTest {
 
   @Mock

@@ -3,14 +3,7 @@ marp: true
 theme: pragmatech
 ---
 
-<style>
-img[alt~="center"] {
-  display: block;
-  margin: 0 auto;
-}
-</style>
-
-![bg](./assets/barcelona-spring-io.jpg)
+![bg](./assets/digdir-cover.jpg)
 
 ---
 
@@ -19,23 +12,23 @@ img[alt~="center"] {
 
 # Testing Spring Boot Applications Demystified
 
-## Full-Day Workshop
+## First Workshop Day
 
-_Spring I/O Conference Workshop 21.05.2025_
+_Digdir Workshop 02.03.2026_
 
 Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](https://x.com/rieckpil)
 
 
---- 
+---
 
-<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Spring I/O 21.05.2025' -->
+<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 02.03.2026' -->
 <!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
 ![bg left:33%](assets/generated/lab-2.jpg)
 
 # Lab 2
 
-## Sliced Testing
+## Sliced Testing - Verifying the Web Layer
 
 ---
 
@@ -43,14 +36,87 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ---
 
+## Spring Boot 3 vs. 4: What Changed?
+
+**Modular Starters** — renamed for clarity:
+
+| Spring Boot 3 | Spring Boot 4 |
+|---------------|---------------|
+| `spring-boot-starter-web` | `spring-boot-starter-webmvc` |
+| `spring-boot-starter-test` | `spring-boot-starter-webmvc-test` (+ per-module test starters) |
+| `spring-boot-starter-oauth2-client` | `spring-boot-starter-security-oauth2-client` |
+
+**Jackson 3** — package relocation:
+
+| Before | After |
+|--------|-------|
+| `com.fasterxml.jackson.*` | `tools.jackson.*` |
+| `@JsonComponent` | `@JacksonComponent` |
+| `Jackson2ObjectMapperBuilderCustomizer` | `JsonMapperBuilderCustomizer` |
+
+---
+
+- `@WebMvcTest` no longer in `org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;` but `org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;`
+
+## Spring Boot 3 vs. 4: More Changes
+
+**Nullability** — JSpecify replaces Spring's own annotations:
+- `org.springframework.lang.Nullable` → `org.jspecify.annotations.Nullable`
+
+**Jakarta EE 11** baseline (Servlet 6.1):
+- No `javax.*` imports left — already migrated in Boot 3, but now raised to Jakarta EE 11
+
+**Relocated classes** (selected):
+- `@EntityScan` → `org.springframework.boot.persistence.autoconfigure.EntityScan`
+- `TestRestTemplate` → `org.springframework.boot.resttestclient.TestRestTemplate`
+- `@PropertyMapping` → `org.springframework.boot.test.context.PropertyMapping`
+
+**Migration tip**: Add `spring-boot-starter-classic` temporarily to restore the old classpath, fix imports, then remove it.
+
+---
+
+## How Our Application Evolved
+
+In Lab 1, we focused on **unit testing** plain Java classes in isolation:
+
+- `BookService` tested with Mockito mocks
+- No Spring context required
+- Fast, simple, focused on business logic
+
+Now, our application has grown and includes a **web layer**:
+
+- REST controllers exposing HTTP endpoints
+- Spring Security protecting certain routes
+- JSON serialization/deserialization of request and response bodies
+
+---
+
+## What Changed Since Lab 1?
+
+```
+Lab 1: Service Layer                Lab 2: + Web Layer
+┌─────────────────────┐             ┌─────────────────────┐
+│   BookService       │             │   BookController     │ ← NEW
+│   (Unit Tested ✓)   │             │   SecurityConfig     │ ← NEW
+└─────────────────────┘             ├─────────────────────┤
+                                    │   BookService        │
+                                    │   (Unit Tested ✓)    │
+                                    └─────────────────────┘
+```
+
+- Controllers handle HTTP requests, validation and serialization
+- Security config restricts access to endpoints
+- **Question**: Can we unit test all of this effectively?
+
+---
+
 ## Unit Testing Has Limits
 
-- **Request Mapping**: Does `/api/users/{id}` actually resolve to your desired method?
-- **Validation**: Will incomplete request bodys result in a 400 bad request or return an accidental 200?
+- **Request Mapping**: Does `/api/books/{isbn}` actually resolve to your desired method?
+- **Validation**: Will incomplete request bodies result in a 400 Bad Request or return an accidental 200?
 - **Serialization**: Are your JSON objects serialized and deserialized correctly?
 - **Headers**: Are you setting Content-Type or custom headers correctly?
 - **Security**: Are your Spring Security configuration and other authorization checks enforced?
-- **Database**: Can we effectively map our complex JPA entity to a database table?
 - etc.
 
 ---
@@ -67,7 +133,9 @@ class BookControllerUnitTest {
   @InjectMocks
   private BookController bookController;
 
-  // ...
+  // We can test the return value...
+  // but NOT request mappings, serialization,
+  // validation, security, error handling, etc.
 }
 ```
 
@@ -89,6 +157,36 @@ class BookControllerUnitTest {
 ---
 
 ![w:700 center](assets/generated/spring-sliced-context.png)
+
+---
+
+## What Is MockMvc?
+
+- A **mocked servlet environment** provided by Spring Test
+- Simulates HTTP requests **without starting an actual server** (no real Tomcat)
+- Processes the full Spring MVC pipeline: routing, filters, serialization, exception handling
+- Allows testing controllers with real HTTP semantics (status codes, headers, body)
+
+```java
+mockMvc.perform(get("/api/books/1234")
+    .accept(MediaType.APPLICATION_JSON))
+  .andExpect(status().isOk())
+  .andExpect(jsonPath("$.title").value("Spring Boot Testing"));
+```
+
+---
+
+## MockMvc: What Gets Tested?
+
+| Aspect | Unit Test | MockMvc |
+|--------|:---------:|:-------:|
+| Business logic | ✓ | ✓ |
+| Request mapping | ✗ | ✓ |
+| JSON serialization | ✗ | ✓ |
+| Validation (`@Valid`) | ✗ | ✓ |
+| Exception handling | ✗ | ✓ |
+| Security filters | ✗ | ✓ |
+| Content negotiation | ✗ | ✓ |
 
 ---
 
@@ -119,6 +217,105 @@ class BookControllerTest {
 
 ---
 
+## What @WebMvcTest Loads (and What It Doesn't)
+
+**Included** in the sliced context:
+- `@Controller`, `@RestController`, `@ControllerAdvice`
+- `@JsonComponent`, `Converter`, `Filter`
+- `WebMvcConfigurer`, `HandlerMethodArgumentResolver`
+
+**Excluded** from the sliced context:
+- `@Service`, `@Repository`, `@Component`
+- `DataSource`, `EntityManager`, JPA repositories
+- Any non-web Spring beans
+
+Use `@MockitoBean` to provide mocks for excluded dependencies.
+
+---
+
+## Testing Security with @WebMvcTest
+
+- `@WebMvcTest` auto-configures Spring Security (if on classpath)
+- By default, all endpoints require authentication
+- Use `@Import(SecurityConfig.class)` to load your actual security rules
+
+```java
+@WebMvcTest(BookController.class)
+@Import(SecurityConfig.class)
+class BookControllerSecurityTest {
+
+  @Autowired
+  private MockMvc mockMvc;
+
+  @MockitoBean
+  private BookService bookService;
+
+  @Test
+  void shouldRejectUnauthenticatedAccess() throws Exception {
+    mockMvc.perform(get("/api/books"))
+      .andExpect(status().isUnauthorized());
+  }
+}
+```
+
+---
+
+## Simulating Authenticated Users
+
+Spring Security Test provides annotations and request post-processors:
+
+```java
+@Test
+@WithMockUser(roles = "ADMIN")
+void shouldAllowAdminToDeleteBook() throws Exception {
+  mockMvc.perform(delete("/api/books/1234"))
+    .andExpect(status().isNoContent());
+}
+
+@Test
+@WithMockUser(roles = "USER")
+void shouldForbidRegularUserFromDeletingBook() throws Exception {
+  mockMvc.perform(delete("/api/books/1234"))
+    .andExpect(status().isForbidden());
+}
+```
+
+---
+
+## Security Testing Options
+
+| Approach | Use Case |
+|----------|----------|
+| `@WithMockUser` | Quick mock with roles/authorities |
+| `@WithMockUser(username, roles)` | Customized mock principal |
+| `SecurityMockMvcRequestPostProcessors.jwt()` | Test JWT-based authentication |
+| No annotation | Verify unauthenticated access is rejected |
+
+---
+
+## Spring Security Test: Under the Hood
+
+All these testing utilities work the same way under the hood:
+
+```java
+// What @WithMockUser and SecurityMockMvcRequestPostProcessors do internally
+SecurityContext context = SecurityContextHolder.createEmptyContext();
+
+context.setAuthentication(
+  new UsernamePasswordAuthenticationToken("user", "password",
+    List.of(new SimpleGrantedAuthority("ROLE_USER")))
+);
+
+SecurityContextHolder.setContext(context);
+```
+
+- `SecurityContextHolder` stores the authentication per thread (`ThreadLocal`)
+- Before the test runs, the mock authentication is placed on the current thread
+- Spring Security filters then read from this context as if a real login happened
+- After the test, the context is cleaned up automatically
+
+---
+
 ## Common Test Slices
 
 - `@WebMvcTest` - Controller layer
@@ -127,106 +324,6 @@ class BookControllerTest {
 - `@RestClientTest` - RestTemplate testing
 - `@WebFluxTest` - WebFlux controller testing
 - `@JdbcTest` - JDBC testing
-
----
-
-## Introducing: @DataJpaTest
-
-```java
-@DataJpaTest
-class BookRepositoryTest {
-  
-    @Autowired
-    private TestEntityManager entityManager;
-    
-    @Autowired
-    private BookRepository bookRepository;
-}
-```
-
-- Tests JPA repositories
-- Auto-configures in-memory database
-- Provides `TestEntityManager`
-- Verify JPA entity mapping, creation and native queries
-
----
-
-## In-Memory vs. Real Database
-
-- By default, Spring Boot tries to autoconfigure an in-memory relational database (H2 or Derby)
-- In-memory database pros:
-  - Easy to use & fast
-  - Less overhead
-- In-memory database cons:
-  - Mismatch with the infrastructure setup in production
-  - Despite having compatibility modes, we can't fully test proprietary database features
-
----
-
-<!--
-
-Notes:
-
-- who is not using Testcontainers
-- explain basics
-
--->
-
-## Solution: Docker & Testcontainers
-
-![bg right:33%](assets/generated/containers.jpg)
-
----
-
-## Using a Real Database
-
-```java
-@Container
-@ServiceConnection
-static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-  .withDatabaseName("testdb")
-  .withUsername("test")
-  .withPassword("test")
-  .withInitScript("init-postgres.sql"); // Initialize PostgreSQL with required extensions
-```
-
----
-
-![](assets/hibernate-persistence-context.svg)
-
----
-
-## Test Data Management
-
-- Each test should start with a known state
-- Tests should not interfere with each other
-- Options:
-  - Truncate tables between tests
-  - Transaction rollback (`@Transactional`)
-  - Separate schemas per test
-  - Database resets
-
----
-
-## Testing Native Queries
-
-```java
-/**
- * PostgreSQL-specific: Full text search on book titles with ranking.
- * Uses PostgreSQL's to_tsvector and to_tsquery for sophisticated text searching
- * with ranking based on relevance.
- *
- * @param searchTerms the search terms (e.g. "adventure dragons fantasy")
- * @return list of books matching the search terms, ordered by relevance
- */
-@Query(value = """
-  SELECT * FROM books
-  WHERE to_tsvector('english', title) @@ plainto_tsquery('english', :searchTerms)
-  ORDER BY ts_rank(to_tsvector('english', title), plainto_tsquery('english', :searchTerms)) DESC
-  """,
-  nativeQuery = true)
-List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerms);
-```
 
 ---
 

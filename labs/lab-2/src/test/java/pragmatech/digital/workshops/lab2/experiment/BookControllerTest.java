@@ -4,10 +4,9 @@ import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Optional;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -22,6 +21,7 @@ import pragmatech.digital.workshops.lab2.entity.Book;
 import pragmatech.digital.workshops.lab2.entity.BookStatus;
 import pragmatech.digital.workshops.lab2.exception.BookAlreadyExistsException;
 import pragmatech.digital.workshops.lab2.service.BookService;
+import tools.jackson.databind.ObjectMapper;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
