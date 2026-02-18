@@ -24,6 +24,7 @@ public class SecurityConfig {
     http
       .csrf(AbstractHttpConfigurer::disable)
       .authorizeHttpRequests(auth -> auth
+        .requestMatchers(HttpMethod.GET, "/books").permitAll()
         .requestMatchers(HttpMethod.GET, "/api/books").permitAll()
         .requestMatchers(HttpMethod.GET, "/api/books/{id}").hasRole("USER")
         .requestMatchers(HttpMethod.DELETE, "/api/books/{id}").hasRole("ADMIN")

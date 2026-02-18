@@ -36,8 +36,8 @@ public class Book {
   private BookStatus status;
 
   // Default constructor for JPA
-  protected Book() {
-  }
+//  protected Book() {
+//  }
 
   public Book(String isbn, String title, String author, LocalDate publishedDate) {
     this.isbn = isbn;

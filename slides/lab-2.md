@@ -233,6 +233,47 @@ Use `@MockitoBean` to provide mocks for excluded dependencies.
 
 ---
 
+## Strategies for Adding Missing Beans to a Slice
+
+| Strategy | When to Use |
+|----------|-------------|
+| `@MockitoBean` | Replace a dependency with a Mockito mock — most common approach |
+| `@SpyBean` | Wrap the real bean to verify interactions while keeping real behavior |
+| `@TestConfiguration` + `@Bean` | Provide a custom bean definition scoped to your test |
+| `@Primary` in a test config | Override an existing bean with a test-specific implementation |
+| In-memory implementation | Implement the interface yourself (e.g., `InMemoryBookRepository`) |
+
+---
+
+## Adding Missing Beans: Code Examples
+
+```java
+// 1. Mock — no real behavior
+@MockitoBean
+private BookService bookService;
+
+// 2. Spy — real behavior + verification
+@SpyBean
+private BookService bookService;
+
+// 3. TestConfiguration — custom bean for the test
+@TestConfiguration
+static class TestConfig {
+  @Bean
+  public BookService bookService() {
+    return new BookService(new InMemoryBookRepository());
+  }
+}
+
+// 4. In-memory implementation — useful for repositories
+public class InMemoryBookRepository implements BookRepository {
+  private final Map<String, Book> store = new HashMap<>();
+  // implement interface methods backed by the map
+}
+```
+
+---
+
 ## Testing Security with @WebMvcTest
 
 - `@WebMvcTest` auto-configures Spring Security (if on classpath)
@@ -324,6 +365,44 @@ SecurityContextHolder.setContext(context);
 - `@RestClientTest` - RestTemplate testing
 - `@WebFluxTest` - WebFlux controller testing
 - `@JdbcTest` - JDBC testing
+
+---
+
+## @WebMvcTest Beyond REST: Testing Thymeleaf with HtmlUnit
+
+`@WebMvcTest` also auto-configures an HtmlUnit `WebClient` — great for testing server-side rendered pages:
+
+```java
+@WebMvcTest(BookCatalogController.class)
+@Import(SecurityConfig.class)
+class BookCatalogControllerHtmlUnitTest {
+
+  @Autowired
+  private WebClient webClient; // auto-configured by @WebMvcTest
+
+  @MockitoBean
+  private BookService bookService;
+
+  @Test
+  @WithMockUser
+  void shouldRenderBookCatalogPageWithAllBooks() throws Exception {
+    given(bookService.getAllBooks()).willReturn(List.of(
+      new Book("978-0-13-468599-1", "Effective Java", "Joshua Bloch",
+        LocalDate.of(2018, 1, 6))
+    ));
+
+    HtmlPage page = webClient.getPage("/books");
+
+    assertThat(page.getTitleText()).isEqualTo("Book Catalog");
+    assertThat(page.getBody().getTextContent()).contains("Effective Java");
+
+    HtmlTable table = page.getFirstByXPath("//table");
+    assertThat(table.asNormalizedText()).contains("978-0-13-468599-1");
+  }
+}
+```
+
+Requires `org.htmlunit:htmlunit` on the test classpath (version managed by Spring Boot).
 
 ---
 

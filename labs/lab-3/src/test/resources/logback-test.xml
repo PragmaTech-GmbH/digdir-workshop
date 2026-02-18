@@ -8,7 +8,16 @@
 
   <logger name="org.springframework.transaction.interceptor" level="TRACE"/>
   <logger name="org.springframework.transaction" level="DEBUG"/>
+  <logger name="org.springframework.data.jpa.repository.query" level="DEBUG"/>
+  <logger name="org.springframework.orm.jpa" level="DEBUG"/>
+
   <logger name="jakarta.persistence.EntityManager" level="DEBUG"/>
+
   <logger name="org.hibernate.Session" level="DEBUG"/>
+  <logger name="org.hibernate.event.internal" level="DEBUG"/>
+  <logger name="org.hibernate.orm.jdbc.bind" level="TRACE"/>
+
+  <!-- JDBC Connection Pool (HikariCP) -->
+  <logger name="com.zaxxer.hikari" level="DEBUG"/>
 
 </configuration>

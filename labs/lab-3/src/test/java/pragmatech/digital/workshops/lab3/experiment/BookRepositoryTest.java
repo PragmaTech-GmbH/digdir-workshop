@@ -36,8 +36,10 @@ class BookRepositoryTest {
     .withUsername("test")
     .withPassword("test")
     .withInitScript("init-postgres.sql");
+
   @Autowired
   private BookRepository bookRepository;
+
   @Autowired
   private TestEntityManager testEntityManager;
 
