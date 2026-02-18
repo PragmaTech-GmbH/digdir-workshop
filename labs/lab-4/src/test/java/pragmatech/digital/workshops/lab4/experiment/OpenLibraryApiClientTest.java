@@ -1,7 +1,5 @@
 package pragmatech.digital.workshops.lab4.experiment;
 
-import java.io.IOException;
-
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +15,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OpenLibraryApiClientTest {
 
@@ -30,29 +28,22 @@ class OpenLibraryApiClientTest {
 
   @BeforeEach
   void setUp() {
-    WebClient webClient = WebClient.builder()
-      .baseUrl(wireMockServer.baseUrl())
-      .build();
-
-    cut = new OpenLibraryApiClient(webClient);
+    cut = new OpenLibraryApiClient(
+      WebClient.builder().baseUrl(wireMockServer.baseUrl()).build());
   }
 
   @Test
-  void shouldReturnBookMetadataWhenApiReturnsValidResponse() throws IOException {
-    // Arrange
+  void shouldReturnBookMetadataWhenApiReturnsValidResponse() {
     String isbn = "9780132350884";
 
     wireMockServer.stubFor(
       get("/isbn/" + isbn)
         .willReturn(aResponse()
           .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-          .withBodyFile(isbn + "-success.json"))
-    );
+          .withBodyFile(isbn + "-success.json")));
 
-    // Act
     BookMetadataResponse result = cut.getBookByIsbn(isbn);
 
-    // Assert
     assertThat(result).isNotNull();
     assertThat(result.title()).isEqualTo("Clean Code");
     assertThat(result.getMainIsbn()).isEqualTo("9780132350884");
@@ -62,17 +53,28 @@ class OpenLibraryApiClientTest {
 
   @Test
   void shouldThrowExceptionWhenBookNotFound() {
-    // Arrange
+    String isbn = "9999999999";
+
+    wireMockServer.stubFor(
+      get("/isbn/" + isbn)
+        .willReturn(aResponse().withStatus(404)));
+
+    assertThatThrownBy(() -> cut.getBookByIsbn(isbn))
+      .isInstanceOf(WebClientResponseException.NotFound.class);
+  }
+
+  @Test
+  void shouldThrowExceptionWhenServerReturnsInternalError() {
     String isbn = "9999999999";
 
     wireMockServer.stubFor(
       get("/isbn/" + isbn)
         .willReturn(aResponse()
-          .withStatus(404)));
+          .withStatus(500)
+          .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+          .withBody("{\"error\": \"Internal Server Error\"}")));
 
-    // Act & Assert
-    assertThrows(WebClientResponseException.class, () ->
-      cut.getBookByIsbn(isbn)
-    );
+    assertThatThrownBy(() -> cut.getBookByIsbn(isbn))
+      .isInstanceOf(WebClientResponseException.InternalServerError.class);
   }
 }

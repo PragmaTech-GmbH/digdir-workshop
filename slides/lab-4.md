@@ -3,7 +3,7 @@ marp: true
 theme: pragmatech
 ---
 
-![bg](./assets/barcelona-spring-io.jpg)
+![bg](./assets/digdir-cover.jpg)
 
 ---
 
@@ -15,27 +15,37 @@ theme: pragmatech
 
 ## Full-Day Workshop
 
-_Spring I/O Conference Workshop 21.05.2025_
+_Digdir Workshop 02.03.2026_
 
 Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](https://x.com/rieckpil)
 
---- 
-
-<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Spring I/O 21.05.2025' -->
-<!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
-
-![bg left:33%](assets/generated/lab-4.jpg)
-
-# Lab 4
-
-## Best Practices, Pitfalls, AI & Outlook
-
 ---
+
+<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 02.03.2026' -->
+<!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
 ## Discuss Exercises from Lab 3
 
 ---
 
+![bg left:33%](assets/generated/lab-4.jpg)
+
+# Lab 4
+
+## Integration Testing Part I
+
+### Testing With a Complete Application Context
+
+---
+
+## Enrich the Application
+
+- **OpenLibrary API client** (`WebClient`) fetches book metadata from a remote API
+- **Book entity** gains `description` and `thumbnailUrl` columns (Flyway `V002`)
+- **HTTP on startup**: `CommandLineRunner` pre-fetches metadata for 3 ISBNs on every context start
+- **Security**: endpoints protected by roles — imagine an OAuth 2 resource server
+
+---
 
 <!-- _class: section -->
 
@@ -67,6 +77,35 @@ Notes:
 
 ---
 
+## Challenges: Starting a Full Context
+
+1. **HTTP calls during context initialisation** → external API unavailable in CI/offline
+2. **Infrastructure dependencies** → databases, caches, message brokers
+3. **Security** → OAuth 2 tokens, role-protected endpoints
+4. **Data preparation & cleanup** → consistent, isolated state between tests
+
+---
+
+## Challenge 1: HTTP Calls During Context Init
+
+```java
+@Bean
+public CommandLineRunner initializeBookMetadata() {
+  return args -> {
+    // Fires real HTTP to https://openlibrary.org on every context start
+    openLibraryApiClient.getBookByIsbn("9780132350884");
+    openLibraryApiClient.getBookByIsbn("9780201633610");
+    openLibraryApiClient.getBookByIsbn("9780134757599");
+  };
+}
+```
+
+- Context fails to start when the remote API is **unreachable** (CI, airplane mode)
+- Tests become **non-deterministic** — dependent on external state and sample data
+- Solution: stub the HTTP calls **before** the Spring context finishes starting
+
+---
+
 ## Introducing: Microservice HTTP Communication
 
 ```java
@@ -83,12 +122,23 @@ public BookMetadataResponse getBookByIsbn(String isbn) {
 
 ## HTTP Communication During Tests
 
-- Unreliable when performing real HTTP responses during tests
-- Sample data?
-- Authentication?
-- Cleanup?
-- No airplane-mode testing possible anymore
-- Solution: Stub the HTTP responses for remote system
+- Unreliable when performing real HTTP calls during tests
+- Sample data — what if the remote API changes its response?
+- Authentication — real API keys in CI pipelines?
+- Cleanup — data written to external systems
+- No airplane-mode testing possible
+- Solution: **stub the HTTP responses** for the remote system
+
+---
+
+## Why Offline / Airplane Mode Matters
+
+- Tests must pass **anywhere**: laptop, CI/CD pipeline, air-gapped environments
+- Real network calls make tests:
+  - **Slow** — latency accumulates across a large suite
+  - **Flaky** — rate limits, API downtime, responses that change over time
+  - **Insecure** — credentials leak into logs, data written to external systems
+- **Rule:** no test should require an outbound network connection
 
 ---
 
@@ -114,23 +164,50 @@ wireMockServer.stubFor(
 
 ---
 
+## WireMock: Advanced Features
+
+**Stateful scenarios** — simulate retry / eventual consistency
+
+```java
+wireMockServer.stubFor(get("/isbn/123")
+  .inScenario("retry").whenScenarioStateIs(STARTED)
+  .willReturn(serverError())
+  .willSetStateTo("recovered"));
+
+wireMockServer.stubFor(get("/isbn/123")
+  .inScenario("retry").whenScenarioStateIs("recovered")
+  .willReturn(ok().withBodyFile("123-success.json")));
+```
+
+**Response templating** — inject request values into the response body
+
+```java
+.willReturn(aResponse()
+  .withBodyFile("book-template.json")
+  .withTransformers("response-template"))
+```
+
+**Proxying & Recording** — record real API responses once, replay offline
+
+---
+
 ## Making Our Application Context Start
 
 - Stubbing HTTP responses during the launch of our Spring Context
 - Introducing a new concept: `ContextInitializer`
 
 ```java
-WireMockServer wireMockServer = new WireMockServer(WireMockConfiguration.wireMockConfig().dynamicPort());
-
+WireMockServer wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
 wireMockServer.start();
 
-// Register a shutdown hook to stop WireMock when the context is closed
 applicationContext.addApplicationListener(event -> {
   if (event instanceof ContextClosedEvent) {
-    logger.info("Stopping WireMock server");
     wireMockServer.stop();
   }
 });
+
+// Configure stubs before Spring beans initialise
+new OpenLibraryApiStub(wireMockServer).stubForSuccessfulBookResponse("9780132350884");
 
 TestPropertyValues.of(
   "book.metadata.api.url=http://localhost:" + wireMockServer.port()
@@ -138,281 +215,87 @@ TestPropertyValues.of(
 ```
 
 ---
-<!--
 
-- Go to `DefaultContextCache` to show the cache
+## Challenge 2: Infrastructure Dependencies
 
--->
+```java
+@TestConfiguration
+class PostgresTestcontainerConfig {
 
-## Spring Test `TestContext` Caching
+  @Bean
+  @ServiceConnection
+  PostgreSQLContainer<?> postgresContainer() {
+    return new PostgreSQLContainer<>("postgres:16-alpine")
+        .withInitScript("init-postgres.sql");
+  }
+}
+```
 
-- Part of Spring Test (automatically part of every Spring Boot project via `spring-boot-starter-test`)
-- Spring Test caches an already started Spring `ApplicationContext` for later reuse
-- Cache retrieval is usually faster than a cold context start
-- Configurable cache size (default is 32) with LRU (least recently used) strategy
-
-Speed up your build:
-
-![](assets/generated/context-cache-improvements.png)
-
----
-
-## Caching is King
-
-![center](assets/cache.svg)
+- `@ServiceConnection` auto-configures the datasource — no manual URL overrides needed
+- Declare `static` containers to share across tests in a class → faster suites
+- Same image version as production: eliminates "works on my machine" surprises
 
 ---
 
-## How the Cache Key is Built
+## Challenge 3: Security
 
-This goes into the cache key (`MergedContextConfiguration`):
+Imagine the application is an **OAuth 2 Resource Server** — every request must carry a JWT
 
-- activeProfiles (`@ActiveProfiles`)
-- contextInitializersClasses (`@ContextConfiguration`)
-- propertySourceLocations (`@TestPropertySource`)
-- propertySourceProperties (`@TestPropertySource`)
-- contextCustomizer (`@MockitoBean`, `@MockBean`, `@DynamicPropertySource`, ...)
+- Don't spin up a real authorisation server in tests
+- Spring Security Test provides mock contexts instead
 
----
-## Identify Context Restarts
+```java
+// MockMvc: inject a mock security context — no real token exchange
+mockMvc.perform(get("/api/books/1")
+    .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+  .andExpect(status().isOk());
 
-![](assets/context-caching-hints.png)
+// Annotation shortcut
+@WithMockUser(roles = "USER")
+void shouldReturnBook() { ... }
 
-
----
-
-## Investigate the Logs
-
-![](assets/context-caching-logs.png)
-
----
-
-## Spot the Issues for Context Caching
-
-![](assets/context-caching-bad.png)
+// WebTestClient / TestRestTemplate: pass real Basic Auth credentials
+.headers(h -> h.setBasicAuth("user", "user"))
+```
 
 ---
 
-## Context Caching Issues
+## Challenge 4: Data Preparation & Cleanup
 
-Common problems that break caching:
+**Preparing data:**
 
-1. Different context configurations
-2. `@DirtiesContext` usage
-3. Modifying beans in tests
-4. Different property settings
-5. Different active profiles
+```java
+@BeforeEach
+void setUp() {
+  openLibraryApiStub.stubForSuccessfulBookResponse(VALID_ISBN); // WireMock
+  bookRepository.save(new Book(...));                           // programmatic
+}
+```
 
----
+**Cleanup — strategy depends on the HTTP client:**
 
-## Make the Most of the Caching Feature
-
-
-- Avoid `@DirtiesContext` when possible, especially at `AbstractIntegrationTest` classes
-- Understand how the cache key is built
-- Monitor and investigate the context restarts
-- Align the number of unique context configurations for your test suite
-
----
-
-
-# Last Lab
-## Spring Boot Testing Best Practices & Pitfalls
-
-![bg right:33%](assets/generated/best-practices.jpg)
+| Client | Thread | Cleanup |
+|---|---|---|
+| MockMvc | **Same** as test | `@Transactional` → automatic rollback |
+| WebTestClient | **Different** (server thread) | `@AfterEach` → `repository.deleteAll()` |
+| TestRestTemplate | **Different** (server thread) | `@AfterEach` → `repository.deleteAll()` |
 
 ---
 
+## Wrap-Up: Day 1
 
-### Best Practice 1: Test Parallelization
-
-**Goal**: Reduce build time and get faster feedback
-
-Requirements:
-- No shared state
-- No dependency between tests and their execution order
-- No mutation of global state
-
-Two ways to achieve this:
-- Fork a new JVM with Surefire/Failsafe and let it run in parallel -> more resources but isolated execution
-- Use JUnit Jupiter's parallelization mode and let it run in the same JVM with multiple threads
+- **Sliced testing** (`@WebMvcTest`, `@DataJpaTest`) → fast, focused, outer layers in isolation
+- **Integration testing** (`@SpringBootTest`) → validates the full application wiring
+- WireMock + Testcontainers = **offline, deterministic** full-context tests
+- `ContextInitializer` solves the HTTP-on-startup problem
+- Tomorrow: MockMvc vs WebTestClient in depth, context customisation, and exercises
 
 ---
 
-![bg w:800 h:900 center](assets/parallel-testing.svg)
+<!-- _class: section -->
 
----
+# See You Tomorrow!
 
-<!--
+## Day 2 starts at 09:00
 
-Notes:
-- Useful to get started
-- Boilerplate and skeleton help
-- LLM very usueful for boilerplate setup, test data, test migration (e.g. Kotlin -> Java)
-- ChatBots might not produce compilable/working test code, agents are better
--->
-
-### Best Practice 2: Get Help from AI
-
-- [Diffblue Cover](https://www.diffblue.com/): #1 AI Agent for unit testing complex Java code at scale
-- Agent vs. Assistant
-- LLMs: ChatGPT, Claude, Gemini, etc.
-- Claude Code
-- TDD with an LLM?
-- (Not AI but still useful) OpenRewrite for migrations
-- Clearly define your requirements in e.g. `claude.md` or cursor rule files
-
----
-
-### Best Practice 3: Try Mutation Testing
-
-- Having high code coverage might give you a **false sense of security**
-- Mutation Testing with [PIT](https://pitest.org/quickstart/)
-- Beyond Line Coverage: Traditional tools like JaCoCo show which code runs during tests, but PIT verifies if your tests actually detect when code behaves incorrectly by introducing "**mutations**" to your source code.
-- Quality Guarantee: PIT automatically modifies your code (changing conditionals, return values, etc.) to ensure your tests fail when they should, **revealing blind spots** in seemingly comprehensive test suites.
-- Considerations for bigger projects: only run on the new code diffs, not on the whole codebase
-
----
-
-![center w:800 h:600](assets/mutation.svg)
-
----
-
-# Common Spring Boot Testing Pitfalls to Avoid
-
-![bg right:33%](assets/generated/pitfalls.jpg)
-
----
-
-## Testing Pitfall 1: `@SpringBootTest` Obsession
-
-- The name could apply it's a one size fits all solution, but it isn't
-- It comes with costs: starting the (entire) application context
-- Useful for integration tests that verify the whole application but not for testing a single service in isolation
-- Start with unit tests, see if sliced tests are applicable and only then use `@SpringBootTest`
-
----
-
-## @SpringBootTest Obsession Visualized
-
-![](assets/generated/spring-boot-test-obsession.png)
-
----
-
-## Testing Pitfall 2: @MockitoBean vs. @MockBean vs. @Mock
-
-- `@MockBean` is a Spring Boot specific annotation that replaces a bean in the application context with a Mockito mock
-- `@MockBean` is deprecated in favor of the new `@MockitoBean` annotation
-- `@Mock` is a Mockito annotation, only for unit tests
-
----
-
-## Testing Pitfall 3: JUnit 4 vs. JUnit 5
-
-![bg right:33%](assets/generated/car-comparison.jpg)
-
-- You can mix both versions in the same project but not in the same test class
-- Browsing through the internet (aka. StackOverflow/blogs/LLMs) for solutions, you might find test setups that are still for JUnit 4
-- Easily import the wrong `@Test` and you end up wasting one hour because the Spring context does not work as expected
-
----
-
-<center>
-
-| JUnit 4              | JUnit 5                            |
-|----------------------|------------------------------------|
-| @Test from org.junit | @Test from org.junit.jupiter.api   |
-| @RunWith             | @ExtendWith/@RegisterExtension     |
-| @ClassRule/@Rule     | -                                  |
-| @Before              | @BeforeEach                        |
-| @Ignore              | @Disabled                          |
-| @Category            | @Tag                               |
-
-</center>
-
----
-
-<!--
-
-Notes:
-
-- Rich ecosystem: LocalStack, Contract testing (Pact), GreenMail, Selenide, Performance Testing
-
--->
-
-## Summary Lab 1
-
-- Spring Boot applications come with batteries-included for testing
-- Testing Swiss-Army Knife pulls many test libraries
-- Master JUnit, Mockito and AssertJ first
-- Maven Failsafe and Maven Surefire Plugin run our tests (Gradle equivalent `test` task)
-- Explore the JUnit Jupiter Extension Model for cross-cutting test concerns
-
----
-
-## Summary Lab 2
-
-- Sliced testing helps to verify parts of your application in isolation
-- `@WebMvcTest`: Verify our controller when it comes to validation, authentication, authorization, serialization, exception mapping, etc.
-- `@DataJpaTest`: Test our JPA-related code with a real database
-- Testcontainers: Seamlessly start external infrastructure components locally
-
----
-
-## Summary Lab 3
-
-- Things might get complicated when trying to launch the entire application context
-- WireMock helps to stub remote HTTP services
-- The context caching feature can drastically reduce build times
-- Consider the caching key structure when writing your integration tests for maximum reuse
-
----
-
-## Summary Lab 4
-
-- Test parallelization can help reduce build times even further
-- Don't use `@SpringBootTest` everytime
-- `@MockitoBean` vs. `@MockBean` vs. `@Mock`
-- Consider the JUnit 4 vs. 5 pitfall
-- AI can help you write your tests
-- Give mutation testing a try
-
----
-
-## What We Couldn't Touch Today
-
-- E2E
-- Tests involving the UI
-- TDD (Test-Driven Development)
-- BDD (Behaviour-Driven Development)
-- Contract Testing
-- The entire rich & mature Java testing ecosystem
-- Testing reactive Spring Boot Applications
-
----
-
-## Further Resources on Testing
-
-![bg h:1200 right:33%](assets/generated/offers-w.png)
-
-- Online Course: [Testing Spring Boot Applications Masterclass](https://rieckpil.de/testing-spring-boot-applications-masterclass/) (on-demand, 12 hours, 130+ modules)
-- eBook: [30 Testing Tools and Libraries Every Java Developer Must Know](https://leanpub.com/java-testing-toolbox)
-- eBook: [Stratospheric - From Zero to Production with AWS](https://leanpub.com/stratospheric)
-- Spring Boot [testing workshops](https://pragmatech.digital/workshops/) (in-house/remote/hybrid)
-- [Consulting offerings](https://pragmatech.digital/consulting/), e.g. the Test Maturity Assessment
-
----
-
-![bg right:33%](assets/generated/end.jpg)
-
-## Next Steps
-
-- Request your certificate of completion via mail/LinkedIn
-- Share your feedback, e.g. you could share three highlights and three areas for improvement
-- Enjoy the next two days at Spring I/O
-- Joyful testing!
-
-**LinkedIn**: Philip Riecks
-**X**: @rieckpil
-**Mail**: philip@pragmatech.digital
-
+_No lab exercise today — Lab 4 content feeds directly into tomorrow's exercises_
