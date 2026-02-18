@@ -8,6 +8,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.BatchSize;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +23,8 @@ class Author {
 
   private String name;
 
-  @OneToMany(mappedBy = "author", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+  // @BatchSize(size=25)
+  @OneToMany(mappedBy = "author", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
   private List<BookEntry> books = new ArrayList<>();
 
   protected Author() {}

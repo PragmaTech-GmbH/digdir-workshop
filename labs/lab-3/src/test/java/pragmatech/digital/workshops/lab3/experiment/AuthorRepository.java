@@ -1,4 +1,9 @@
 package pragmatech.digital.workshops.lab3.experiment;
 
-public interface AuthorRepository extends org.springframework.data.jpa.repository.JpaRepository<Author, Long> {
+import org.springframework.data.jpa.repository.JpaRepository;
+
+interface AuthorRepository extends JpaRepository<Author, Long> {
+//  @Override
+//  @EntityGraph(attributePaths = "books")
+//  List<Author> findAll();
 }

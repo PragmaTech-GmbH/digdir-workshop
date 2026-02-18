@@ -330,6 +330,128 @@ List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerm
 
 ---
 
+## Other Slices Worth Knowing
+
+| Annotation | What it tests |
+|---|---|
+| `@WebMvcTest` | Spring MVC controllers (covered in Lab 2) |
+| `@DataJpaTest` | JPA repositories (this lab) |
+| `@JsonTest` | JSON serialisation / deserialisation |
+| `@RestClientTest` | `RestClient` / `RestTemplate` HTTP clients |
+| `@DataMongoTest` | MongoDB repositories |
+
+- Each slice starts only the beans relevant to that layer — **fast context startup**
+- All other beans are excluded; use `@MockitoBean` for the rest
+
+---
+
+## @JsonTest — Serialisation Slice
+
+```java
+@JsonTest
+class BookDtoJsonTest {
+
+  @Autowired
+  private JacksonTester<BookDto> json;
+
+  @Test
+  void shouldSerialiseStatusAsString() throws Exception {
+    var book = new BookDto("978-0-13-235088-4", "Clean Code", BookStatus.AVAILABLE);
+
+    assertThat(json.write(book))
+      .extractingJsonPathStringValue("$.status")
+      .isEqualTo("AVAILABLE");
+  }
+}
+```
+
+- Loads only Jackson configuration, `@JsonComponent`, mixins
+- No controllers, no repositories, no security
+
+---
+
+## @RestClientTest — HTTP Client Slice
+
+```java
+@RestClientTest(BookApiClient.class)
+class BookApiClientTest {
+
+  @Autowired private BookApiClient cut;
+  @Autowired private MockRestServiceServer server;
+
+  @Test
+  void shouldReturnBooksFromRemoteApi() {
+    server.expect(requestTo("/api/books"))
+      .andRespond(withSuccess("""
+          [{"isbn": "978-0-13-235088-4", "title": "Clean Code"}]
+          """, MediaType.APPLICATION_JSON));
+
+    assertThat(cut.fetchAll()).hasSize(1);
+  }
+}
+```
+
+- Loads only the target client bean + `MockRestServiceServer`
+- No web server started, no database
+
+---
+
+## @DataJpaTest + Message Listeners
+
+- Event listeners and message consumers often carry persistence logic
+- Test them with `@DataJpaTest` + `@Import` of the listener bean:
+
+```java
+@DataJpaTest
+@Import(BookCreatedEventListener.class)
+class BookCreatedEventListenerTest {
+
+  @Autowired private BookCreatedEventListener cut;
+  @Autowired private BookRepository bookRepository;
+
+  @Test
+  void shouldPersistBookWhenEventIsReceived() {
+    cut.onBookCreated(new BookCreatedEvent("978-0-13-235088-4", "Clean Code"));
+
+    assertThat(bookRepository.findByIsbn("978-0-13-235088-4")).isPresent();
+  }
+}
+```
+
+---
+
+## Keep the Main Class Clean
+
+**Problem:** infrastructure config placed on the main class leaks into every slice
+
+```java
+@SpringBootApplication
+@EnableJpaAuditing          // ← this will break @WebMvcTest — JPA context required
+public class Lab3Application { ... }
+```
+
+**Fix:** move it into a dedicated `@Configuration` class
+
+```java
+@Configuration
+@EnableJpaAuditing
+class JpaConfig { }
+```
+
+- `@WebMvcTest` and `@JsonTest` slices no longer need JPA on the classpath
+- Keeps `@SpringBootApplication` as a pure entry point — no cross-cutting concerns
+
+---
+
+## Summary: Slice Testing
+
+- Slices test the **outer parts** of the application in isolation — controllers, repositories, clients, JSON
+- Context starts in **seconds** because only the relevant layer is loaded
+- Encourage a clear **separation of concerns**: config in `@Configuration` classes, logic in beans
+- Complement with `@SpringBootTest` for full integration coverage at key boundaries
+
+---
+
 # Time For Some Exercises
 ## Lab 3
 

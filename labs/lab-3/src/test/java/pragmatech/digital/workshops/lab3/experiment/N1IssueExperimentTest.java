@@ -1,7 +1,8 @@
 package pragmatech.digital.workshops.lab3.experiment;
 
 import java.util.List;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -16,14 +17,11 @@ import static org.assertj.core.api.Assertions.assertThat;
   })
 class N1IssueExperimentTest {
 
-  @Autowired
-  private TestEntityManager entityManager;
+  @Autowired private TestEntityManager entityManager;
+  @Autowired private AuthorRepository authorRepository;
 
-  @Autowired
-  private AuthorRepository authorRepository;
-
-  @Test
-  void shouldTriggerAdditionalSelectStatementsWhenAccessingLazyCollections() {
+  @BeforeEach
+  void setUp() {
     var tolkien = new Author("J.R.R. Tolkien");
     tolkien.addBook(new BookEntry("The Fellowship of the Ring"));
     tolkien.addBook(new BookEntry("The Two Towers"));
@@ -44,16 +42,45 @@ class N1IssueExperimentTest {
     authorRepository.save(huxley);
     entityManager.flush();
     entityManager.clear();
+  }
 
-    List<Author> authors = authorRepository.findAll();
+  @Nested
+  class N1Problem {
 
-    List<String> bookTitles =
-      authors.stream()
-        .flatMap(author -> author.getBooks().stream())
-        .map(BookEntry::getTitle)
-        .toList();
+    @Test
+    void shouldTriggerAdditionalSelectStatementsWhenAccessingCollections() {
+      List<Author> authors =
+          entityManager
+              .getEntityManager()
+              .createQuery("SELECT a FROM Author a", Author.class)
+              .getResultList();
 
-    assertThat(authors).hasSize(3);
-    assertThat(bookTitles).hasSize(9);
+      List<String> bookTitles =
+          authors.stream()
+              .flatMap(author -> author.getBooks().stream())
+              .map(BookEntry::getTitle)
+              .toList();
+
+      assertThat(authors).hasSize(3);
+      assertThat(bookTitles).hasSize(9);
+    }
+  }
+
+  @Nested
+  class EntityGraphFix {
+
+    @Test
+    void shouldLoadAllBooksInASingleQueryWhenUsingEntityGraph() {
+      List<Author> authors = authorRepository.findAll();
+
+      List<String> bookTitles =
+          authors.stream()
+              .flatMap(author -> author.getBooks().stream())
+              .map(BookEntry::getTitle)
+              .toList();
+
+      assertThat(authors).hasSize(3);
+      assertThat(bookTitles).hasSize(9);
+    }
   }
 }
