@@ -19,6 +19,10 @@
     <wiremock.version>3.13.0</wiremock.version>
     <pitest.version>1.15.3</pitest.version>
     <pitest-junit5.version>1.2.1</pitest-junit5.version>
+    <!-- Allow skipping unit tests: ./mvnw verify -DskipUnitTests -->
+    <skipUnitTests>false</skipUnitTests>
+    <!-- Allow skipping integration tests: ./mvnw verify -DskipITs -->
+    <skipITs>false</skipITs>
   </properties>
 
   <dependencies>
@@ -99,7 +103,18 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <forkCount>2</forkCount>
+          <!-- Fork multiple JVM processes for unit tests (process-level isolation) -->
+          <forkCount>1C</forkCount>     <!-- 1 fork per available CPU core -->
+          <reuseForks>true</reuseForks>
+          <!-- Redirect test output to files; only shown when a test fails -->
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <!-- Retry flaky tests up to 2 times before reporting as a failure -->
+          <rerunFailingTestsCount>2</rerunFailingTestsCount>
+          <!-- Full stack traces in reports (not trimmed) -->
+          <trimStackTrace>false</trimStackTrace>
+          <!-- Allow skipping unit tests for CI integration-only runs -->
+          <skipTests>${skipUnitTests}</skipTests>
+          <!-- JUnit 5 parallel execution within each JVM fork (thread-level) -->
           <properties>
             <configurationParameters>
               junit.jupiter.execution.parallel.enabled = true
@@ -113,6 +128,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <!-- Redirect integration test output to files; only shown on failure -->
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <!-- Allow skipping ITs for fast local builds: mvn test -DskipITs -->
+          <skipITs>${skipITs}</skipITs>
+          <trimStackTrace>false</trimStackTrace>
+        </configuration>
         <executions>
           <execution>
             <goals>

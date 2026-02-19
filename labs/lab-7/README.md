@@ -92,6 +92,31 @@ src/
 
 ## Exercises
 
+### Exercise 3: Write a Reusable JUnit 5 Testcontainers Extension
+
+**Goal:** Build a reusable JUnit 5 extension that manages a singleton PostgreSQL Testcontainer.
+
+This teaches the JUnit extension approach as an alternative to Spring Boot's `@ServiceConnection` + `@TestConfiguration` pattern. The extension approach works at a lower level and is framework-agnostic.
+
+**Steps:**
+1. Create class `SharedPostgresContainerExtension` implementing `org.junit.jupiter.api.extension.BeforeAllCallback`
+2. Declare a `private static final PostgreSQLContainer<?> POSTGRES` field — this is the singleton
+3. In a `static {}` initializer block, create and start the container, and register a `Runtime.getRuntime().addShutdownHook(...)` to stop it
+4. In `beforeAll(ExtensionContext context)`, call `System.setProperty(...)` to configure Spring's datasource:
+   - `spring.datasource.url` → `container.getJdbcUrl()`
+   - `spring.datasource.username` → `container.getUsername()`
+   - `spring.datasource.password` → `container.getPassword()`
+5. Add `@ExtendWith(SharedPostgresContainerExtension.class)` to `Exercise3ReusableExtensionTest`
+6. Remove `@Import(LocalDevTestcontainerConfig.class)` from that test class — the extension replaces it
+7. Run the test and verify it passes
+
+**Why does `System.setProperty` work?** JUnit's `BeforeAllCallback` runs before `@SpringBootTest` initializes the application context. Spring reads system properties during context startup, so the datasource URL is picked up correctly.
+
+**File:** `exercises/Exercise3ReusableExtensionTest.java`
+**Solution:** `solutions/SharedPostgresContainerExtension.java` + `solutions/Solution3ReusableExtensionTest.java`
+
+---
+
 ### Exercise 1: Configure and Observe Parallel Test Execution
 
 **Goal:** Understand JUnit 5 parallel execution configuration and observe its effect.
