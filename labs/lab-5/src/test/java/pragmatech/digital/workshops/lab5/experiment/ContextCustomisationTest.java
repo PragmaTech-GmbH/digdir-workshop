@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pragmatech.digital.workshops.lab5.LocalDevTestcontainerConfig;
 import pragmatech.digital.workshops.lab5.client.OpenLibraryApiClient;
 import pragmatech.digital.workshops.lab5.dto.BookMetadataResponse;
-import org.springframework.test.annotation.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
