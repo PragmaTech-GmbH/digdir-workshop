@@ -18,4 +18,10 @@ jobs:
         cache: maven
 
     - name: Build with Maven
-      run: ./mvnw verify
+      run: ./mvnw verify --batch-mode --no-transfer-progress -Dmaven.test.redirectTestOutputToFile=true
+
+    - name: Display test output on failure
+      if: failure()
+      run: |
+        find . -name "*.txt" -path "*/surefire-reports/*" -exec echo "=== {} ===" \; -exec cat {} \;
+        find . -name "*.txt" -path "*/failsafe-reports/*" -exec echo "=== {} ===" \; -exec cat {} \;
