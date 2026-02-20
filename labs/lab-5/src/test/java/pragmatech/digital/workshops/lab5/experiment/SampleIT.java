@@ -1,6 +1,5 @@
 package pragmatech.digital.workshops.lab5.experiment;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +9,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pragmatech.digital.workshops.lab5.config.WireMockContextInitializer;
+import tools.jackson.databind.json.JsonMapper;
 
 @Testcontainers
 @SpringBootTest
@@ -22,8 +22,9 @@ class SampleIT {
     .withDatabaseName("testdb")
     .withUsername("test")
     .withPassword("test");
+
   @Autowired
-  private ObjectMapper objectMapper;
+  private JsonMapper objectMapper;
 
   @Test
   void testSample() {
