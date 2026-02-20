@@ -62,13 +62,11 @@ class Exercise3ReusableExtensionTest {
   void shouldRunWithSharedContainerExtension() {
     // TODO: Verify the repository works (container is up and schema is applied)
     // Hint: bookRepository.count() should return a non-negative number
-    throw new UnsupportedOperationException("Implement this exercise");
   }
 
   @Test
   void shouldShareContainerAcrossTestMethods() {
     // TODO: Insert a book and verify it was saved
     // (show the container is shared and functional)
-    throw new UnsupportedOperationException("Implement this exercise");
   }
 }
