@@ -39,12 +39,14 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 # Organization
 
-- Hotel WiFi: `Spring I/O` Password: `bootifulBCN`
-- Slides & Code will be shared: check PragmaTech GitHub
+- Hotel WiFi: `TBD` Password: `TBD`
+- Slides & Code will be shared
+- Sharing links during the workshop: 
+- Please interrupt me any time if you have questions or want to share your experience
 - Workshop lab requirements
   - Java 21
-  - Docker
-  - GitHub Account (preferably a personal)
+  - Docker Engine configured to run with Testcontainers
+  - GitHub Account (preferably a personal) as a fallback to work with GitHub Codespaces
 
 ---
 
@@ -53,15 +55,17 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ---
 
-### (Planned) Timeline
+### Planned Timeline for the First Workshop Day
 
-- 9:00 - 10:45: **Lab 1 - Introduction and Spring Boot Testing Basics**  (105 minutes)
-- 10:45 - 11:05: **Coffee Break** (20 minutes)
-- 11:05 - 13:00: **Lab 2 - Sliced Testing** (115 minutes)
-- 13:00 - 14:00 **Lunch** (60 minutes)
-- 14:00 - 15:30: **Lab 3 - Integration Testing** (90 minutes)
-- 15:30 - 15:50 **Coffee Break** (20 minutes)
-- 15:50 - 17:00: **Lab 4 - Pitfalls, Best Practices, AI & Outlook** (70 minutes)
+- 9:00 - 10:30: **Testing Basics and Unit Testing with Spring Boot** 
+- 10:30 - 11:00: **Coffee Break & Time for Exercises** 
+- 11:00 - 12:30: **Sliced Testing - Introduction and Verifying the Web Layer**
+- 12:30 - 13:30: **Lunch** 
+- 13:30 - 15:00: **Sliced Testing Continued, including Testing the Persistence Layer**
+- 15:00 - 15:30: **Coffee Break & Time for Exercises**
+- 15:30 - 17:00: **Integration Testing - Introduction and Strategies to Start the Entire Context**
+
+Each 90-minute lab session will include a mix of explanations, demonstrations, and hands-on exercises. 
 
 ---
 ![bg right:33%](assets/generated/hza.jpg)
@@ -69,7 +73,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 ## Workshop Instructor: Philip
 
 - Self-employed IT consultant from Herzogenaurach, Germany (Bavaria) 🍻
-- Blogging & content creation for more than five years. Since three years with a focus on testing Java and specifically Spring Boot applications 🍃
+- Blogging & content creation for more than five years with a focus on testing Java and specifically Spring Boot applications 🍃
 - Founder of PragmaTech GmbH - Enabling Developers to Frequently Deliver Software with More Confidence 🚤
 - Enjoys writing tests 🧪
 - @rieckpil on various platforms
@@ -79,9 +83,8 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 ## Getting to Know Each Other
 
 - What's your name?
-- Where are you from?
-- What's your role?
-- How is automated testing handled in your team/company? 
+- What's your role in your team?
+- How is automated testing handled in your team? 
 - Do you have any specific testing challenges? 
 - What's your expectation for this workshop?
 
