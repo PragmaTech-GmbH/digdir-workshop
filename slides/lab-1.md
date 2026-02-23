@@ -750,5 +750,5 @@ public class TimingExtension implements BeforeTestExecutionCallback, AfterTestEx
 
 
 - Navigate to the `labs/lab-1` folder in the repository and complete the tasks as described in the `README` file of that folder 
-- Time boxed until the end of the coffee break (11:00 AM)
+- Time boxed until the end of the coffee break (11:00)
 - We will discuss the exercises and solutions after the break, so don't worry if you get stuck on any of the tasks. The goal is to learn and explore, not to finish everything perfectly.

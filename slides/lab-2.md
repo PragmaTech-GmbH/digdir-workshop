@@ -24,54 +24,22 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 <!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 02.03.2026' -->
 <!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
+## Discuss Exercises from Lab 1
+
+- Exercise 1: Basic unit testing
+- Exercise 2: JUnit Jupiter extension
+- Exercise 3: Asserting with AssertJ
+
+---
+
+
+
+
 ![bg left:33%](assets/generated/lab-2.jpg)
 
 # Lab 2
 
-## Sliced Testing - Verifying the Web Layer
-
----
-
-## Discuss Exercises from Lab 1
-
----
-
-## Spring Boot 3 vs. 4: What Changed?
-
-**Modular Starters** — renamed for clarity:
-
-| Spring Boot 3 | Spring Boot 4 |
-|---------------|---------------|
-| `spring-boot-starter-web` | `spring-boot-starter-webmvc` |
-| `spring-boot-starter-test` | `spring-boot-starter-webmvc-test` (+ per-module test starters) |
-| `spring-boot-starter-oauth2-client` | `spring-boot-starter-security-oauth2-client` |
-
-**Jackson 3** — package relocation:
-
-| Before | After |
-|--------|-------|
-| `com.fasterxml.jackson.*` | `tools.jackson.*` |
-| `@JsonComponent` | `@JacksonComponent` |
-| `Jackson2ObjectMapperBuilderCustomizer` | `JsonMapperBuilderCustomizer` |
-
----
-
-- `@WebMvcTest` no longer in `org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;` but `org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;`
-
-## Spring Boot 3 vs. 4: More Changes
-
-**Nullability** — JSpecify replaces Spring's own annotations:
-- `org.springframework.lang.Nullable` → `org.jspecify.annotations.Nullable`
-
-**Jakarta EE 11** baseline (Servlet 6.1):
-- No `javax.*` imports left — already migrated in Boot 3, but now raised to Jakarta EE 11
-
-**Relocated classes** (selected):
-- `@EntityScan` → `org.springframework.boot.persistence.autoconfigure.EntityScan`
-- `TestRestTemplate` → `org.springframework.boot.resttestclient.TestRestTemplate`
-- `@PropertyMapping` → `org.springframework.boot.test.context.PropertyMapping`
-
-**Migration tip**: Add `spring-boot-starter-classic` temporarily to restore the old classpath, fix imports, then remove it.
+## Sliced Testing - Introduction and Verifying the Web Layer
 
 ---
 
@@ -91,39 +59,40 @@ Now, our application has grown and includes a **web layer**:
 
 ---
 
-## What Changed Since Lab 1?
 
-```
-Lab 1: Service Layer                Lab 2: + Web Layer
-┌─────────────────────┐             ┌─────────────────────┐
-│   BookService       │             │   BookController     │ ← NEW
-│   (Unit Tested ✓)   │             │   SecurityConfig     │ ← NEW
-└─────────────────────┘             ├─────────────────────┤
-                                    │   BookService        │
-                                    │   (Unit Tested ✓)    │
-                                    └─────────────────────┘
-```
-
-- Controllers handle HTTP requests, validation and serialization
-- Security config restricts access to endpoints
-- **Question**: Can we unit test all of this effectively?
-
----
-
-## Unit Testing Has Limits
-
-- **Request Mapping**: Does `/api/books/{isbn}` actually resolve to your desired method?
-- **Validation**: Will incomplete request bodies result in a 400 Bad Request or return an accidental 200?
-- **Serialization**: Are your JSON objects serialized and deserialized correctly?
-- **Headers**: Are you setting Content-Type or custom headers correctly?
-- **Security**: Are your Spring Security configuration and other authorization checks enforced?
-- etc.
-
----
-
-## Unit Testing a Controller
+## Imagine a Typical HTTP POST Controller Endpoint
 
 ```java
+@RestController
+@RequestMapping("/api/books")
+public class BookController {
+
+  private final BookService bookService;
+
+  public BookController(BookService bookService) {
+    this.bookService = bookService;
+  }
+
+  @PostMapping
+  public ResponseEntity<Void> createBook(@Valid @RequestBody BookCreationRequest request, UriComponentsBuilder uriComponentsBuilder) {
+   
+    Long id = bookService.createBook(request);
+
+    return ResponseEntity.created(
+        uriComponentsBuilder.path("/api/books/{id}")
+          .buildAndExpand(id)
+          .toUri())
+      .build();
+  }
+}
+
+```
+
+---
+
+## Unit Testing this Controller Endpoint
+
+```java {21,22}
 @ExtendWith(MockitoExtension.class)
 class BookControllerUnitTest {
 
@@ -133,43 +102,103 @@ class BookControllerUnitTest {
   @InjectMocks
   private BookController bookController;
 
-  // We can test the return value...
-  // but NOT request mappings, serialization,
-  // validation, security, error handling, etc.
+  @Test
+  void shouldReturnCreatedResponseWithLocationWhenCreatingBook() {
+    when(bookService.createBook(any(BookCreationRequest.class))).thenReturn(1L);
+
+    BookCreationRequest creationRequest = new BookCreationRequest(
+      "123-1234567890",
+      "Test Book",
+      "Test Author",
+      LocalDate.of(2020, 1, 1)
+    );
+
+    ResponseEntity<Void> response = bookController
+      .createBook(creationRequest, UriComponentsBuilder.newInstance().scheme("http").host("localhost"));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+  }
 }
 ```
 
 ---
 
+## Unit Testing Has Limits
+
+With (only) unit testing, we get limited confidence when it comes to:
+
+- **Request Mapping**: Does `/api/books/{isbn}` actually resolve to your desired method?
+- **Validation**: Will incomplete request bodies result in a 400 Bad Request or return an accidental 200?
+- **Serialization**: Are your JSON objects serialized and deserialized correctly?
+- **Headers**: Are you setting Content-Type or custom headers correctly?
+- **Security**: Are your Spring Security configuration and other authorization checks enforced?
+
+---
+
 <!-- _class: section -->
 
-# A Better Alternative
+# Finding a Better Alternative
 ## Sliced Testing
 
 ![bg right:33%](assets/generated/slice.jpg)
 
 ---
 
-## A Typical Spring Application Context
 
-![w:600 center](assets/generated/spring-context.png)
 
----
-
-![w:700 center](assets/generated/spring-sliced-context.png)
+![center h:600 w:700](assets/typical-context.png)
 
 ---
 
-## What Is MockMvc?
+![center h:600 w:700](assets/typical-context-colored.png)
 
-- A **mocked servlet environment** provided by Spring Test
+---
+
+
+![center h:500 w:600](assets/typical-context-sliced.png)
+
+---
+
+
+![](assets/typical-context-webmvctest-example.png)
+
+---
+
+### Spring Boot Test Slice Example: `@WebMvcTest`
+
+
+```java {1,12,6}
+@WebMvcTest(BookController.class)
+@Import(SecurityConfig.class)
+class BookController {
+
+  @Autowired
+  private MockMvc mockMvc;
+
+  @MockitoBean
+  private BookService bookService;
+
+  @Test
+  @WithMockUser
+  void shouldReturnLocationOfNewlyBook() throws Exception {
+    // ...
+  }
+}
+```
+
+---
+
+## What Is `MockMvc`?
+
+- A **mocked servlet environment** provided by Spring Test and auto-configured by Spring Boot with `@WebMvcTest`
 - Simulates HTTP requests **without starting an actual server** (no real Tomcat)
 - Processes the full Spring MVC pipeline: routing, filters, serialization, exception handling
 - Allows testing controllers with real HTTP semantics (status codes, headers, body)
 
 ```java
-mockMvc.perform(get("/api/books/1234")
-    .accept(MediaType.APPLICATION_JSON))
+this.mockMvc
+  .perform(get("/api/books/1234")
+  .accept(MediaType.APPLICATION_JSON))
   .andExpect(status().isOk())
   .andExpect(jsonPath("$.title").value("Spring Boot Testing"));
 ```
@@ -177,6 +206,7 @@ mockMvc.perform(get("/api/books/1234")
 ---
 
 ## MockMvc: What Gets Tested?
+
 
 | Aspect | Unit Test | MockMvc |
 |--------|:---------:|:-------:|
@@ -190,10 +220,7 @@ mockMvc.perform(get("/api/books/1234")
 
 ---
 
-## Slicing Example: @WebMvcTest
-
-- Testing your web layer in isolation and only load the beans you need
-- `MockMvc`: Mocked servlet environment with HTTP semantics
+## Slicing Example in Action `@WebMvcTest`
 
 ```java
 @WebMvcTest(BookController.class)
@@ -209,15 +236,9 @@ class BookControllerTest {
 }
 ```
 
-- See `WebMvcTypeExcludeFilter` for included Spring beans
-
 ---
 
-![center](assets/generated/slicing-annotations.png)
-
----
-
-## What @WebMvcTest Loads (and What It Doesn't)
+## What `@WebMvcTest` Loads (and What It Doesn't)
 
 **Included** in the sliced context:
 - `@Controller`, `@RestController`, `@ControllerAdvice`
@@ -235,14 +256,12 @@ Use `@MockitoBean` to provide mocks for excluded dependencies.
 
 ## Strategies for Adding Missing Beans to a Slice
 
-| Strategy | When to Use |
-|----------|-------------|
-| `@MockitoBean` | Replace a dependency with a Mockito mock — most common approach |
-| `@SpyBean` | Wrap the real bean to verify interactions while keeping real behavior |
+| Strategy                       | When to Use |
+|--------------------------------|-------------|
+| `@MockitoBean`                 | Replace a dependency with a Mockito mock — most common approach |
+| `@MockitoSpyBean`              | Wrap the real bean to verify interactions while keeping real behavior |
 | `@TestConfiguration` + `@Bean` | Provide a custom bean definition scoped to your test |
-| `@Primary` in a test config | Override an existing bean with a test-specific implementation |
-| In-memory implementation | Implement the interface yourself (e.g., `InMemoryBookRepository`) |
-
+| `@Primary` in a test config    | Override an existing bean with a test-specific implementation |
 ---
 
 ## Adding Missing Beans: Code Examples
@@ -253,7 +272,7 @@ Use `@MockitoBean` to provide mocks for excluded dependencies.
 private BookService bookService;
 
 // 2. Spy — real behavior + verification
-@SpyBean
+@MockitoSpyBean
 private BookService bookService;
 
 // 3. TestConfiguration — custom bean for the test
@@ -265,37 +284,8 @@ static class TestConfig {
   }
 }
 
-// 4. In-memory implementation — useful for repositories
 public class InMemoryBookRepository implements BookRepository {
   private final Map<String, Book> store = new HashMap<>();
-  // implement interface methods backed by the map
-}
-```
-
----
-
-## Testing Security with @WebMvcTest
-
-- `@WebMvcTest` auto-configures Spring Security (if on classpath)
-- By default, all endpoints require authentication
-- Use `@Import(SecurityConfig.class)` to load your actual security rules
-
-```java
-@WebMvcTest(BookController.class)
-@Import(SecurityConfig.class)
-class BookControllerSecurityTest {
-
-  @Autowired
-  private MockMvc mockMvc;
-
-  @MockitoBean
-  private BookService bookService;
-
-  @Test
-  void shouldRejectUnauthenticatedAccess() throws Exception {
-    mockMvc.perform(get("/api/books"))
-      .andExpect(status().isUnauthorized());
-  }
 }
 ```
 
@@ -309,37 +299,42 @@ Spring Security Test provides annotations and request post-processors:
 @Test
 @WithMockUser(roles = "ADMIN")
 void shouldAllowAdminToDeleteBook() throws Exception {
-  mockMvc.perform(delete("/api/books/1234"))
+  this.mockMvc
+    .perform(delete("/api/books/1234"))
     .andExpect(status().isNoContent());
 }
 
 @Test
 @WithMockUser(roles = "USER")
 void shouldForbidRegularUserFromDeletingBook() throws Exception {
-  mockMvc.perform(delete("/api/books/1234"))
+  this.mockMvc
+    .perform(delete("/api/books/1234"))
     .andExpect(status().isForbidden());
 }
 ```
 
 ---
 
-## Security Testing Options
+## Spring Security Test Override Options
 
-| Approach | Use Case |
-|----------|----------|
-| `@WithMockUser` | Quick mock with roles/authorities |
-| `@WithMockUser(username, roles)` | Customized mock principal |
-| `SecurityMockMvcRequestPostProcessors.jwt()` | Test JWT-based authentication |
-| No annotation | Verify unauthenticated access is rejected |
+| Approach                                          | Use Case                                            |
+|---------------------------------------------------|-----------------------------------------------------|
+| `@WithMockUser`                                   | Quick mock with roles/authorities                   |
+| `@WithMockUser(username, roles)`                  | Customized mock principal                           |
+| `SecurityMockMvcRequestPostProcessors`            | Test with specific authentication (e.g. basic auth) |
+| No annotation                                     | Verify unauthenticated access is rejected           |
 
 ---
 
 ## Spring Security Test: Under the Hood
 
-All these testing utilities work the same way under the hood:
+- `SecurityContextHolder` stores the authentication per thread (`ThreadLocal`)
+- Before the test runs, the mock authentication is placed on the current thread
+- After the test, the context is cleaned up automatically
 
 ```java
 // What @WithMockUser and SecurityMockMvcRequestPostProcessors do internally
+// see TestSecurityContextHolder
 SecurityContext context = SecurityContextHolder.createEmptyContext();
 
 context.setAuthentication(
@@ -350,10 +345,6 @@ context.setAuthentication(
 SecurityContextHolder.setContext(context);
 ```
 
-- `SecurityContextHolder` stores the authentication per thread (`ThreadLocal`)
-- Before the test runs, the mock authentication is placed on the current thread
-- Spring Security filters then read from this context as if a real login happened
-- After the test, the context is cleaned up automatically
 
 ---
 
@@ -368,47 +359,27 @@ SecurityContextHolder.setContext(context);
 
 ---
 
-## @WebMvcTest Beyond REST: Testing Thymeleaf with HtmlUnit
+![center](assets/slicing-annotations.png)
 
-`@WebMvcTest` also auto-configures an HtmlUnit `WebClient` — great for testing server-side rendered pages:
+---
 
-```java
-@WebMvcTest(BookCatalogController.class)
-@Import(SecurityConfig.class)
-class BookCatalogControllerHtmlUnitTest {
+## Sliced Testing Spring Boot Applications 101
 
-  @Autowired
-  private WebClient webClient; // auto-configured by @WebMvcTest
+- **Core Concept**: Test a specific "slice" or layer of your application by loading a minimal, relevant part of the Spring `ApplicationContext`.
 
-  @MockitoBean
-  private BookService bookService;
+- **Confidence Gained**: Helps validate parts of your application where pure unit testing is insufficient, like the web, messaging, or data layer.
 
-  @Test
-  @WithMockUser
-  void shouldRenderBookCatalogPageWithAllBooks() throws Exception {
-    given(bookService.getAllBooks()).willReturn(List.of(
-      new Book("978-0-13-468599-1", "Effective Java", "Joshua Bloch",
-        LocalDate.of(2018, 1, 6))
-    ));
+- **Prominent Examples:** Web layer (`@WebMvcTest`) and database layer (`@DataJpaTest` -> next lab)
 
-    HtmlPage page = webClient.getPage("/books");
+- **Pitfalls**: Requires careful configuration to ensure only the necessary slice of the context is loaded.
 
-    assertThat(page.getTitleText()).isEqualTo("Book Catalog");
-    assertThat(page.getBody().getTextContent()).contains("Effective Java");
-
-    HtmlTable table = page.getFirstByXPath("//table");
-    assertThat(table.asNormalizedText()).contains("978-0-13-468599-1");
-  }
-}
-```
-
-Requires `org.htmlunit:htmlunit` on the test classpath (version managed by Spring Boot).
+- **Tools**: JUnit, Mockito, Spring Test, Spring Boot
 
 ---
 
 # Time For Some Exercises
 ## Lab 2
 
-- Work with the same repository as in lab 1
+- Work with the known code repository on the same git branch
 - Navigate to the `labs/lab-2` folder in the repository and complete the tasks as described in the `README` file of that folder
-- Time boxed until the end of the lunch break (14:00 AM)
+- Time boxed until the end of the lunch break (13:30)
