@@ -32,14 +32,14 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## Sliced Testing Continued
 
-### Verifying the Persistence Layer with Testcontainers
+### Verifying the Persistence Layer with `@DataJpaTest` 
 
 ---
 
 ![bg right:25%](assets/evolve2.jpg)
 
 
-## Enrich the Application
+## Enriching the Application
 
 - **PostgreSQL** added as infrastructure dependency (`docker-compose.yml`)
 - **Flyway** for versioned schema migrations (`src/main/resources/db/migration/`)
@@ -457,4 +457,4 @@ class JpaConfig { }
 
 - Work with the same repository as in lab 1/lab 2
 - Navigate to the `labs/lab-3` folder in the repository and complete the tasks as described in the `README` file of that folder
-- Time boxed until the end of the coffee break (15:50 AM)
+- Time boxed until the end of the coffee break (15:30)

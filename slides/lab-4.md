@@ -38,7 +38,10 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ---
 
-## Enrich the Application
+![bg right:25%](assets/evolve2.jpg)
+
+
+## Enriching the Application
 
 - **OpenLibrary API client** (`WebClient`) fetches book metadata from a remote API
 - **Book entity** gains `description` and `thumbnailUrl` columns (Flyway `V002`)
