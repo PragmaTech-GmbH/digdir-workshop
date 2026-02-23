@@ -7,7 +7,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class JUnit5DemoTest {
+class JUnit6DemoTest {
 
   @Test
   void shouldCreateNewBook() {

@@ -1,7 +1,9 @@
 package pragmatech.digital.workshops.lab1.solutions;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static tools.jackson.databind.ext.javatime.deser.JSR310StringParsableDeserializer.ZONE_ID;
 
 @ExtendWith(MockitoExtension.class)
 class Solution1UnitTest {
@@ -85,6 +88,29 @@ class Solution1UnitTest {
     when(timeProvider.getCurrentDate()).thenReturn(LocalDate.of(2026, 3, 1)); // A Sunday
 
     RefactoredBookService cut = new RefactoredBookService(bookRepository, timeProvider);
+    String isbn = "9780134685991";
+
+    when(bookRepository.findByIsbn(isbn)).thenReturn(Optional.empty());
+
+    // Act & Assert
+    IllegalArgumentException exception = assertThrows(
+      IllegalArgumentException.class,
+      () -> cut.registerBook(isbn, "Effective Java", "Joshua Bloch")
+    );
+
+    assertThat(exception.getMessage()).isEqualTo("Books cannot be registered on Sunday");
+  }
+
+  @Test
+  void shouldThrowExceptionWhenTryingToRegisterBookOnSundayWithClock() {
+    // Arrange
+    LocalDate fixedDate = LocalDate.of(2026, 3, 1);
+    Clock fixedClock = Clock.fixed(
+      fixedDate.atStartOfDay(ZoneId.of("UTC")).toInstant(),
+      ZoneId.of("UTC")
+    );
+
+    BookServiceWithClock cut = new BookServiceWithClock(bookRepository, fixedClock);
     String isbn = "9780134685991";
 
     when(bookRepository.findByIsbn(isbn)).thenReturn(Optional.empty());

@@ -68,6 +68,19 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 Each 90-minute lab session will include a mix of explanations, demonstrations, and hands-on exercises. 
 
 ---
+
+![bg right:33%](assets/generated/best-practices.jpg)
+
+# Goals of this Workshop
+
+- **Demystify** the complexities of testing Spring Boot applications
+- Provide clear explanations, practical insights, and **actionable** **best** **practices**
+- Become **more** **productive** and **confident** in your development and testing efforts
+- Help reduce build times and keep it as a reasonable time to allow **fast** **feedback**
+- Share testing & build setup tips & tricks
+
+---
+
 ![bg right:33%](assets/generated/hza.jpg)
 
 ## Workshop Instructor: Philip
@@ -94,7 +107,7 @@ Each 90-minute lab session will include a mix of explanations, demonstrations, a
 
 # Lab 1
 
-## Introduction and Spring Boot Testing Basics
+## Testing Basics and Unit Testing with Spring Boot
 
 ---
 <!-- paginate: true -->
@@ -118,11 +131,11 @@ Notes:
 
 # Getting Started with Testing
 
-## How It Started
+## My Personal Journey as a Junior Developer
 
 ---
 
-<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Spring I/O 21.05.2025' -->
+<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 02.03.2026' -->
 <!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
 <!--
@@ -139,42 +152,61 @@ Notes:
 
 ### Getting Used To Testing At Work
 
-![](assets/generated/pr-reject.png)
+![](assets/pr-reject.png)
 
 ---
 
-# Goals of this Workshop
+### Common Testing Misconceptions
 
-- Demystify the complexities of testing Spring Boot applications
-- Provide clear explanations, practical insights, and actionable best practices
-- Become more productive and confident in your development and testing efforts
+- Testing is only for finding bugs
+- Testing is time-consuming and slows down development
+- Testing is only for QA teams
+- Testing is not necessary if the code looks simple
+- Testing only until we increase code coverage to goal X%
+- Testing is a neglected afterthought
 
----
-
-<!-- _class: section -->
-
-# Spring Boot Testing Basics
-## Spring Boot Starter Test, Build Tools, Conventions, Unit Testing
+... testing Spring Boot applications is complicated.
 
 ---
 
-## Why Do We Test Software
+## Spring Boot Testing - The Bad & Ugly
 
-- Shift Left
-- Catch Bugs Early
-- Confidence in Code Changes
-- Documentation
-- Regression Prevention
-- Become more Productive
+
+![center h:500 w:900](assets/spring-boot-testing-the-bad.png)
 
 ---
 
-<style>
-img[alt~="center"] {
-  display: block;
-  margin: 0 auto;
-}
-</style>
+
+## Spring Boot Testing - The Good
+
+![center h:500 w:900](assets/tests-benefit-en.png)
+
+
+---
+
+![bg right:33%](assets/enough.jpg)
+
+
+## How Much Testing is _Enough_?
+
+---
+
+<!-- footer: '![w:32 h:32](assets/logo.webp)' -->
+
+
+![bg right:33%](assets/northstar.jpg)
+
+### My Overall Northstar for Automated Testing
+
+Imagine seeing this pull request on a Friday afternoon:
+
+![](assets/northstar-pr.png)
+
+How confident are you to merge this major Spring Boot upgrade and deploy it to production once the pipeline turns green?
+
+Good tests don't just catch bugs - they give you **fast feedback** and **confident deployments**.
+
+---
 
 ### Naming Things Is Hard
 
@@ -200,29 +232,33 @@ img[alt~="center"] {
 
 ---
 
-### Spring Boot Starter Test
-
-<!--
-
-Notes:
-
-- Show the `spring-boot-starter-test` dependency and Maven dependency tree
-- Show manual overriden
 
 
--->
+<!-- _class: section -->
 
-![bg right:33%](assets/generated/swiss.jpg)
+# Spring Boot Testing Basics
+## Spring Boot Starter Test, Build Tools, Conventions, Unit Testing
 
-- aka. "Testing Swiss Army Knife"
-- Batteries-included for testing
-- Dependency management for:
-  - JUnit Jupiter
-  - Mockito
-  - AssertJ
-  - Awaitility
-  - etc.
-- We can manually override the dependency versions
+---
+
+
+### Our foundation: Spring Boot Starter Test
+
+![bg right:33%](assets/swiss.jpg)
+
+- The "Testing Swiss Army Knife"
+
+
+```xml
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-test</artifactId>
+  <scope>test</scope>
+</dependency>
+```
+
+- Batteries-included for testing by transitively including popular testing libraries
+- Out-of-the-box dependency management to ensure compatibility
 
 ---
 
@@ -237,45 +273,51 @@ Tips:
 - Pick one assertion library or at least not mix it within the same test class
 -->
 
-```shell
-[INFO] +- org.springframework.boot:spring-boot-starter-test:jar:3.4.5:test
-[INFO] |  +- org.springframework.boot:spring-boot-test:jar:3.4.5:test
-[INFO] |  +- org.springframework.boot:spring-boot-test-autoconfigure:jar:3.4.5:test
-[INFO] |  +- com.jayway.jsonpath:json-path:jar:2.9.0:test
-[INFO] |  +- jakarta.xml.bind:jakarta.xml.bind-api:jar:4.0.2:test
-[INFO] |  |  \- jakarta.activation:jakarta.activation-api:jar:2.1.3:test
-[INFO] |  +- net.minidev:json-smart:jar:2.5.2:test
-[INFO] |  |  \- net.minidev:accessors-smart:jar:2.5.2:test
+```shell {4-6,13,15-16,17,25,29}
+./mvnw dependency:tree
+[INFO] ...
+[INFO] +- org.springframework.boot:spring-boot-starter-test:jar:4.0.2:test
+[INFO] |  +- org.springframework.boot:spring-boot-test:jar:4.0.2:test
+[INFO] |  +- org.springframework.boot:spring-boot-test-autoconfigure:jar:4.0.2:test
+[INFO] |  +- com.jayway.jsonpath:json-path:jar:2.10.0:test
+[INFO] |  |  \- org.slf4j:slf4j-api:jar:2.0.17:compile
+[INFO] |  +- jakarta.xml.bind:jakarta.xml.bind-api:jar:4.0.4:test
+[INFO] |  |  \- jakarta.activation:jakarta.activation-api:jar:2.1.4:test
+[INFO] |  +- net.minidev:json-smart:jar:2.6.0:test
+[INFO] |  |  \- net.minidev:accessors-smart:jar:2.6.0:test
 [INFO] |  |     \- org.ow2.asm:asm:jar:9.7.1:test
-[INFO] |  +- org.assertj:assertj-core:jar:3.26.3:test
-[INFO] |  |  \- net.bytebuddy:byte-buddy:jar:1.15.11:test
+[INFO] |  +- org.assertj:assertj-core:jar:3.27.6:test
+[INFO] |  |  \- net.bytebuddy:byte-buddy:jar:1.17.8:test
 [INFO] |  +- org.awaitility:awaitility:jar:4.3.0:test
-[INFO] |  +- org.hamcrest:hamcrest:jar:2.2:test
-[INFO] |  +- org.junit.jupiter:junit-jupiter:jar:5.11.4:test
-[INFO] |  |  +- org.junit.jupiter:junit-jupiter-api:jar:5.11.4:test
-[INFO] |  |  |  +- org.junit.platform:junit-platform-commons:jar:1.11.4:test
+[INFO] |  +- org.hamcrest:hamcrest:jar:3.0:test
+[INFO] |  +- org.junit.jupiter:junit-jupiter:jar:6.0.2:test
+[INFO] |  |  +- org.junit.jupiter:junit-jupiter-api:jar:6.0.2:test
+[INFO] |  |  |  +- org.opentest4j:opentest4j:jar:1.3.0:test
+[INFO] |  |  |  +- org.junit.platform:junit-platform-commons:jar:6.0.2:test
 [INFO] |  |  |  \- org.apiguardian:apiguardian-api:jar:1.1.2:test
-[INFO] |  |  +- org.junit.jupiter:junit-jupiter-params:jar:5.11.4:test
-[INFO] |  |  \- org.junit.jupiter:junit-jupiter-engine:jar:5.11.4:test
-[INFO] |  |     \- org.junit.platform:junit-platform-engine:jar:1.11.4:test
-[INFO] |  +- org.mockito:mockito-core:jar:5.17.0:test
-[INFO] |  |  +- net.bytebuddy:byte-buddy-agent:jar:1.15.11:test
+[INFO] |  |  +- org.junit.jupiter:junit-jupiter-params:jar:6.0.2:test
+[INFO] |  |  \- org.junit.jupiter:junit-jupiter-engine:jar:6.0.2:test
+[INFO] |  |     \- org.junit.platform:junit-platform-engine:jar:6.0.2:test
+[INFO] |  +- org.mockito:mockito-core:jar:5.5.0:test
+[INFO] |  |  +- net.bytebuddy:byte-buddy-agent:jar:1.17.8:test
 [INFO] |  |  \- org.objenesis:objenesis:jar:3.3:test
-[INFO] |  +- org.mockito:mockito-junit-jupiter:jar:5.17.0:test
+[INFO] |  +- org.mockito:mockito-junit-jupiter:jar:5.5.0:test
 [INFO] |  +- org.skyscreamer:jsonassert:jar:1.5.3:test
 [INFO] |  |  \- com.vaadin.external.google:android-json:jar:0.0.20131108.vaadin1:test
-[INFO] |  +- org.springframework:spring-core:jar:6.2.6:compile
-[INFO] |  |  \- org.springframework:spring-jcl:jar:6.2.6:compile
-[INFO] |  +- org.springframework:spring-test:jar:6.2.6:test
-[INFO] |  \- org.xmlunit:xmlunit-core:jar:2.10.0:test
+[INFO] |  +- org.springframework:spring-core:jar:7.0.3:compile
+[INFO] |  |  +- commons-logging:commons-logging:jar:1.3.5:compile
+[INFO] |  |  \- org.jspecify:jspecify:jar:1.0.0:compile
+[INFO] |  +- org.springframework:spring-test:jar:7.0.3:test
+[INFO] |  \- org.xmlunit:xmlunit-core:jar:2.10.4:test
 ```
 
 ---
 
-## Transitive Test Dependency: JUnit 5
+## Transitive Test Dependency #0: JUnit 6
 
 - Modern testing framework for Java applications
-- Rewrite of JUnit 4
+- Spring Boot >= 4.0 uses JUnit 6 by default
+- JUnit 5 is a rewrite of JUnit 4
 - JUnit 5 = JUnit Jupiter + JUnit Vintage + JUnit Platform
 - Key features: parameterized tests, nested tests, extensions, parallelization
 
@@ -291,7 +333,7 @@ void shouldCreateNewBook() {
 
 ---
 
-## Transitive Test Dependency: Mockito
+## Transitive Test Dependency #1: Mockito
 
 - Mocking framework for unit tests
 - Used to isolate the class under test from its dependencies
@@ -329,7 +371,7 @@ class BookServiceTest {
 ---
 
 
-## Transitive Test Dependency: AssertJ
+## Transitive Test Dependency #2: AssertJ
 
 - Fluent assertion library for Java tests
 - Provides more readable, chain-based assertions
@@ -352,7 +394,7 @@ void shouldProvideFluentAssertions() {
 
 ---
 
-## Transitive Test Dependency: Hamcrest
+## Transitive Test Dependency #3: Hamcrest
 
 - Fluent assertion library
 - Occasionally used within Spring Test, e.g. MockMvc verifications
@@ -373,7 +415,7 @@ void shouldMatchWithHamcrest() {
 ```
 ---
 
-## Transitive Test Dependency: Awaitility
+## Transitive Test Dependency #4: Awaitility
 
 - Library for testing asynchronous code
 - Provides a DSL for expressing expectations on async operations
@@ -402,7 +444,7 @@ void shouldEventuallyCompleteAsyncOperation() {
 
 ---
 
-## Transitive Test Dependency: JsonPath
+## Transitive Test Dependency #5: JsonPath
 
 - Library for parsing and evaluating JSON documents
 - Used for extracting and asserting on JSON structures
@@ -411,8 +453,7 @@ void shouldEventuallyCompleteAsyncOperation() {
 ```java
 @Test
 void shouldParseAndEvaluateJson() throws Exception {
-  String json = """
-    { "book": {"isbn": "1234", "title": "JSON Testing", "author": "Test Author"}}""";
+  String json = """{ "book": {"isbn": "1234", "title": "JSON Testing", "author": "Test Author"}}""";
   
   DocumentContext context = JsonPath.parse(json);
   
@@ -423,7 +464,7 @@ void shouldParseAndEvaluateJson() throws Exception {
 
 ---
 
-## Transitive Test Dependency: JSONAssert
+## Transitive Test Dependency #6: JSONAssert
 
 - Assertion library for JSON data structures
 - Provides powerful comparison of JSON structures
@@ -432,11 +473,9 @@ void shouldParseAndEvaluateJson() throws Exception {
 ```java
 @Test
 void shouldAssertJsonEquality() throws Exception {
-  String actual = """
-    { "isbn": "1234", "title": "JSON Testing", "author": "Test Author"}""";
+  String actual = """{ "isbn": "1234", "title": "JSON Testing", "author": "Test Author"}""";
 
-  String expected = """
-    { "isbn": "1234", "title": "JSON Testing"}""";
+  String expected = """{ "isbn": "1234", "title": "JSON Testing"}""";
 
   // Strict mode would fail as expected is missing the author field
   JSONAssert.assertEquals(expected, actual, false);
@@ -445,7 +484,7 @@ void shouldAssertJsonEquality() throws Exception {
 
 ---
 
-## Transitive Test Dependency: XMLUnit
+## Transitive Test Dependency #7: XMLUnit
 
 - Library for testing XML documents
 - Provides comparison and validation of XML
@@ -480,15 +519,24 @@ void shouldCompareXmlDocuments() {
 
 ```java
 @Service
-public class BirthdayService {
+public class BookService {
 
-  public boolean isTodayBirthday(LocalDate birthday) {
+  public Long registerBook(String isbn, String title, String author) {
+
+    // ...
+    
     LocalDate today = LocalDate.now();
 
-    return today.getMonth() == birthday.getMonth()
-      && today.getDayOfMonth() == birthday.getDayOfMonth();
+    if (today.getDayOfWeek() == SUNDAY) {
+      throw new IllegalArgumentException("Books cannot be registered on Sunday");
+    }
+
+    // ...
+
+    return savedBook.getId();
   }
 }
+
 ```
 
 ---
@@ -497,19 +545,22 @@ public class BirthdayService {
 
 ```java
 @Service
-public class BirthdayServiceWithClock {
+public class BookService {
 
   private final Clock clock;
 
-  public BirthdayServiceWithClock(Clock clock) {
+  public BookService(Clock clock) {
     this.clock = clock;
   }
 
-  public boolean isTodayBirthday(LocalDate birthday) {
-    LocalDate today = LocalDate.now(clock);
+  public Long registerBook(String isbn, String title, String author) {
+    LocalDate today = LocalDate.now(clock); // <- clock can be modified during testing
 
-    return today.getMonth() == birthday.getMonth()
-      && today.getDayOfMonth() == birthday.getDayOfMonth();
+    if (today.getDayOfWeek() == SUNDAY) {
+      throw new IllegalArgumentException("Books cannot be registered on Sunday");
+    }
+    
+    // ..
   }
 }
 ```
@@ -518,22 +569,24 @@ public class BirthdayServiceWithClock {
 
 ```java
 @Test
-void shouldReturnTrueWhenTodayIsBirthday() {
+void shouldThrowExceptionWhenTryingToRegisterBookOnSundayWithClock() {
   // Arrange
-  LocalDate fixedDate = LocalDate.of(2025, 5, 15);
+  LocalDate fixedDate = LocalDate.of(2026, 3, 1);
   Clock fixedClock = Clock.fixed(
-    fixedDate.atStartOfDay(ZONE_ID).toInstant(),
-    ZONE_ID
+    fixedDate.atStartOfDay(ZoneId.of("UTC")).toInstant(),
+    ZoneId.of("UTC")
   );
 
-  BirthdayServiceWithClock cut = new BirthdayServiceWithClock(fixedClock);
-  LocalDate birthday = LocalDate.of(1990, 5, 15); // Same month and day
+  BookServiceWithClock cut = new BookServiceWithClock(bookRepository, fixedClock);
+  String isbn = "9780134685991";
 
-  // Act
-  boolean result = cut.isTodayBirthday(birthday);
+  when(bookRepository.findByIsbn(isbn)).thenReturn(Optional.empty());
 
-  // Assert
-  assertThat(result).isTrue();
+  // Act & Assert
+  IllegalArgumentException exception = assertThrows(
+    IllegalArgumentException.class,
+    () -> cut.registerBook(isbn, "Effective Java", "Joshua Bloch")
+  );
 }
 ```
 
@@ -631,7 +684,9 @@ class BookServiceTest {
 
 ---
 
-## Create a Custom Extension
+## Creating a Custom Extension
+
+- This is an important building block outsource cross-cutting concerns
 
 ```java
 public class TimingExtension implements BeforeTestExecutionCallback, AfterTestExecutionCallback {
@@ -658,12 +713,38 @@ public class TimingExtension implements BeforeTestExecutionCallback, AfterTestEx
 
 ---
 
-# Time For Some Exercises
-## Lab 1
+# Time to Get Hands-On
 
-- Set up the [repository](https://github.com/PragmaTech-GmbH/testing-spring-boot-applications-demystified-workshop) locally - https://github.com/PragmaTech-GmbH/testing-spring-boot-applications-demystified-workshop
-- Search "PragmaTech GitHub" and pick the first pinned repository
-- Work locally or use GitHub Codespaces (120 hours/month free)
+## Step 0: Explore the Workshop Application
+
+- Let's Explore the workshop application together
+- Repository structure:
+  - Lab code examples and exercises are located in the `labs` folder
+  - Each lab test folder contains three packages:
+    - `exercises` for the exercises you will work on
+    - `solution` for the solutions to the exercises
+    - `experiment` for code examples during the explanations
+  - Slides and other resources are located in the `slides` folder
+
+---
+
+## Step 1: Set Up Your Local Environment
+
+- Set up the [repository](https://github.com/PragmaTech-GmbH/digdir-workshop) locally - https://github.com/PragmaTech-GmbH/digdir-workshop
+- Import the project on the root level as a Maven project
+- Requirements:
+  - IDE of your choice (I can support you with IntelliJ IDEA)
+  - Java 21
+  - Docker Engine configured to run with Testcontainers
+- Work locally or use GitHub Codespaces (120 hours/month free) as a fallback if you have trouble setting up your local environment
 - Fore Codespaces, pick at least 4-Cores (16 GB RAM) and region `Europe West`
+
+
+---
+
+## Step 2: Complete Exercises for Lab 1
+
+
 - Navigate to the `labs/lab-1` folder in the repository and complete the tasks as described in the `README` file of that folder 
-- Time boxed until the end of the coffee break (11:05 AM)
+- Time boxed until the end of the coffee break (11:00 AM)
+- We will discuss the exercises and solutions after the break, so don't worry if you get stuck on any of the tasks. The goal is to learn and explore, not to finish everything perfectly.
