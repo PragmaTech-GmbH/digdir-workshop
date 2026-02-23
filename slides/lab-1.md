@@ -684,6 +684,10 @@ class BookServiceTest {
 
 ---
 
+![h:600 center](assets/junit-lifecycle.svg)
+
+---
+
 ## Creating a Custom Extension
 
 - This is an important building block outsource cross-cutting concerns
