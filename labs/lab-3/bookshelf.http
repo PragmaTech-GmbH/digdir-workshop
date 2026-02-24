@@ -1,30 +1,30 @@
 ### Get all books (public endpoint, no auth required)
-GET http://localhost:8080/api/books
+GET http://localhost:8888/api/books
 Accept: application/json
 
 ###
 
 ### Get a book by ID (requires USER role)
-GET http://localhost:8080/api/books/1
+GET http://localhost:8888/api/books/4
 Accept: application/json
 Authorization: Basic user user
 
 ###
 
 ### Get a book by ID that does not exist (404)
-GET http://localhost:8080/api/books/999
+GET http://localhost:8888/api/books/999
 Accept: application/json
 Authorization: Basic user user
 
 ###
 
 ### Create a new book (requires authentication)
-POST http://localhost:8080/api/books
+POST http://localhost:8888/api/books
 Content-Type: application/json
 Authorization: Basic admin admin
 
 {
-  "isbn": "978-0134685991",
+  "isbn": "978-0134685992",
   "title": "Effective Java",
   "author": "Joshua Bloch",
   "publishedDate": "2018-01-06"
@@ -33,7 +33,7 @@ Authorization: Basic admin admin
 ###
 
 ### Create another book
-POST http://localhost:8080/api/books
+POST http://localhost:8888/api/books
 Content-Type: application/json
 Authorization: Basic librarian librarian
 
@@ -47,7 +47,7 @@ Authorization: Basic librarian librarian
 ###
 
 ### Create a book with invalid payload (validation error - 400)
-POST http://localhost:8080/api/books
+POST http://localhost:8888/api/books
 Content-Type: application/json
 Authorization: Basic admin admin
 
@@ -61,7 +61,7 @@ Authorization: Basic admin admin
 ###
 
 ### Update an existing book (requires authentication)
-PUT http://localhost:8080/api/books/1
+PUT http://localhost:8888/api/books/1
 Content-Type: application/json
 Authorization: Basic admin admin
 
@@ -75,7 +75,7 @@ Authorization: Basic admin admin
 ###
 
 ### Update book status to AVAILABLE
-PUT http://localhost:8080/api/books/1
+PUT http://localhost:8888/api/books/1
 Content-Type: application/json
 Authorization: Basic librarian librarian
 
@@ -89,17 +89,17 @@ Authorization: Basic librarian librarian
 ###
 
 ### Delete a book (requires ADMIN role)
-DELETE http://localhost:8080/api/books/1
+DELETE http://localhost:8888/api/books/4
 Authorization: Basic admin admin
 
 ###
 
 ### Delete a book without ADMIN role (403 Forbidden)
-DELETE http://localhost:8080/api/books/2
+DELETE http://localhost:8888/api/books/2
 Authorization: Basic user user
 
 ###
 
 ### Access protected endpoint without credentials (401 Unauthorized)
-GET http://localhost:8080/api/books/1
+GET http://localhost:8888/api/books/1
 Accept: application/json

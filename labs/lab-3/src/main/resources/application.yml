@@ -12,3 +12,5 @@ spring:
   docker:
     compose:
       file: labs/lab-3/compose.yaml
+server:
+  port: 8888
