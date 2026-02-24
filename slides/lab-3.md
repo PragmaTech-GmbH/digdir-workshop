@@ -353,20 +353,19 @@ void setUp() {
 **`@Transactional` on the test — rollback after each test, no commit**
 
 ```java
-@DataJpaTest          // already wraps each test in a transaction
-@Transactional        // add explicitly on @SpringBootTest slices
-class BookRepositoryTest { ... }
+@DataJpaTest    // already wraps each test in a transaction
+@Transactional  // add explicitly on @SpringBootTest tests
+class BookRepositoryTest {  }
 ```
 
 - The transaction is rolled back after each test → database stays clean
-- Code under test that opens `REQUIRES_NEW` **commits independently** — rollback won't undo it
 
 **When committed state must be verified:**
 
 ```java
 @Test
 @Commit               // or @Rollback(false)
-void shouldPersistAuditTimestampAfterCommit() { ... }
+void shouldPersistAuditTimestampAfterCommit() {  }
 ```
 
 ---
@@ -397,8 +396,6 @@ List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerm
 
 | Annotation | What it tests |
 |---|---|
-| `@WebMvcTest` | Spring MVC controllers (covered in Lab 2) |
-| `@DataJpaTest` | JPA repositories (this lab) |
 | `@JsonTest` | JSON serialisation / deserialisation |
 | `@RestClientTest` | `RestClient` / `RestTemplate` HTTP clients |
 | `@DataMongoTest` | MongoDB repositories |
@@ -408,7 +405,7 @@ List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerm
 
 ---
 
-## @JsonTest — Serialisation Slice
+## @JsonTest - Serialisation Slice
 
 ```java
 @JsonTest
@@ -433,7 +430,7 @@ class BookDtoJsonTest {
 
 ---
 
-## @RestClientTest — HTTP Client Slice
+## @RestClientTest - HTTP Client Slice
 
 ```java
 @RestClientTest(BookApiClient.class)
@@ -456,30 +453,6 @@ class BookApiClientTest {
 
 - Loads only the target client bean + `MockRestServiceServer`
 - No web server started, no database
-
----
-
-## @DataJpaTest + Message Listeners
-
-- Event listeners and message consumers often carry persistence logic
-- Test them with `@DataJpaTest` + `@Import` of the listener bean:
-
-```java
-@DataJpaTest
-@Import(BookCreatedEventListener.class)
-class BookCreatedEventListenerTest {
-
-  @Autowired private BookCreatedEventListener cut;
-  @Autowired private BookRepository bookRepository;
-
-  @Test
-  void shouldPersistBookWhenEventIsReceived() {
-    cut.onBookCreated(new BookCreatedEvent("978-0-13-235088-4", "Clean Code"));
-
-    assertThat(bookRepository.findByIsbn("978-0-13-235088-4")).isPresent();
-  }
-}
-```
 
 ---
 
@@ -508,10 +481,7 @@ class JpaConfig { }
 
 ## Summary: Slice Testing
 
-- Slices test the **outer parts** of the application in isolation — controllers, repositories, clients, JSON
-- Context starts in **seconds** because only the relevant layer is loaded
-- Encourage a clear **separation of concerns**: config in `@Configuration` classes, logic in beans
-- Complement with `@SpringBootTest` for full integration coverage at key boundaries
+TBD
 
 ---
 
