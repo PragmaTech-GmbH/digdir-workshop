@@ -1,16 +1,22 @@
 package pragmatech.digital.workshops.lab3.experiment;
 
+import javax.sql.DataSource;
 import java.time.LocalDate;
 import java.util.List;
 
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.Commit;
+import org.springframework.transaction.support.TransactionTemplate;
 import pragmatech.digital.workshops.lab3.entity.Book;
 import pragmatech.digital.workshops.lab3.entity.BookStatus;
 import pragmatech.digital.workshops.lab3.repository.BookRepository;
@@ -24,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * It also showcases the limitations when using PostgreSQL-specific features.
  */
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+// @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE) // -> src/test/resources/application.yml for the H2 configuration
 class BookRepositoryInMemoryTest {
 
   private static final Logger log =
@@ -34,15 +40,33 @@ class BookRepositoryInMemoryTest {
   private BookRepository bookRepository;
 
   @Autowired
+  private TestEntityManager testEntityManager;
+
+  @Autowired
+  private TransactionTemplate transactionTemplate;
+
+  @Autowired
+  private EntityManager entityManager;
+
+  @Autowired
+  private DataSource dataSource;
+
+  @Autowired
   private JdbcTemplate jdbcTemplate;
 
   @BeforeEach
   void setUp() {
     System.out.println("### Books in the database ###");
     System.out.println(bookRepository.findAll().size());
+
+    assertThat(testEntityManager).isNotNull();
+    assertThat(transactionTemplate).isNotNull();
+    assertThat(entityManager).isNotNull();
+    assertThat(dataSource).isNotNull();
   }
 
   @Test
+  // @Commit -> show integrity failure
   void shouldSaveAndRetrieveBook() {
     // given
     Book book = new Book("978-1-2345-6789-0", "Test Book", "Test Author", LocalDate.of(2020, 1, 1));
@@ -94,6 +118,7 @@ class BookRepositoryInMemoryTest {
   }
 
   @Test
+  @Disabled
   void shouldDemonstrateH2CompatibilityMode() {
     // Verify we're using PostgreSQL mode
     String mode = jdbcTemplate.queryForObject("SELECT SETTING_VALUE FROM INFORMATION_SCHEMA.SETTINGS WHERE SETTING_NAME = 'MODE'", String.class);

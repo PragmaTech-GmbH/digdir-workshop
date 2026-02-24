@@ -41,38 +41,21 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## Enriching the Application
 
-- **PostgreSQL** added as infrastructure dependency (`docker-compose.yml`)
+- **H2** and **PostgreSQL** added as infrastructure dependency (`compose.yaml`)
 - **Flyway** for versioned schema migrations (`src/main/resources/db/migration/`)
 - **JPA entity** mapped to the `books` table
 - **Spring Data JPA repository** with basic CRUD and a custom query
 
 ---
 
-
-## Introducing: @DataJpaTest
+## What to Verify for our Persistence Layer?
 
 ```java
-@DataJpaTest
-class BookRepositoryTest {
-  
-    @Autowired
-    private TestEntityManager entityManager;
-    
-    @Autowired
-    private BookRepository bookRepository;
+public interface BookRepository extends JpaRepository<Book, Long> {
 }
 ```
 
-- Tests JPA repositories
-- Auto-configures in-memory database
-- Provides `TestEntityManager`
-- Verify JPA entity mapping, creation and native queries
-
----
-
-## What to Verify?
-
-- Spring Data query methods → already abstracted, **no need to test**
+- Spring Data query methods (`findByIdOrderByPublishedDateAsc`) → already abstracted, **no need to test**
 - Complex entity graphs and Hibernate associations
 - Mapping of entities to database columns
 - Native (database-specific) queries
@@ -80,6 +63,7 @@ class BookRepositoryTest {
 - Transaction behaviour & connection pool usage in isolation
 
 ---
+
 
 ## Spring Data Abstraction
 
@@ -89,46 +73,59 @@ class BookRepositoryTest {
   - Custom `@Query` methods
   - Projections and DTOs
   - Complex filtering and sorting logic
-- Trust the framework; test what you own
+- Don't test the framework - test your code that uses the framework
 
 ---
 
 ## Complex Entity Graphs
+
+```java
+@Entity
+@Table(name = "books")
+public class Book {
+}
+```
 
 - Hibernate associations require careful verification:
   - `@OneToMany`, `@ManyToMany`, `@ManyToOne`
   - Cascade types (`CascadeType.PERSIST`, `CascadeType.REMOVE`)
   - Orphan removal (`orphanRemoval = true`)
 - Bidirectional mappings must be consistent on both sides
-- Use `TestEntityManager` to flush and clear the persistence context:
-
-```java
-entityManager.persistAndFlush(book);
-entityManager.clear(); // detach to force reload from DB
-```
+- Consider the [Hypersistence Optimizer](https://vladmihalcea.com/hypersistence-optimizer/) for advanced Hibernate using analytics
 
 ---
+
 
 ## Entity-to-Column Mapping
 
 - Verify that JPA annotations match the actual DDL:
   - **Column names**: `@Column(name = "...")`
-  - **Types**: correct Java ↔ SQL type mapping
+  - **Types**: correct Java <-> SQL type mapping
   - **Nullability**: `@Column(nullable = false)` enforced by the DB
   - **Unique constraints**: `@Column(unique = true)` or `@Table(uniqueConstraints = ...)`
   - **Enum strategies**: `@Enumerated(EnumType.STRING)` vs `ORDINAL`
-- H2 compatibility modes can hide real mapping problems — use a real DB
 
 ---
 
-## Native Queries
+
+## Native SQL Queries
+
+
+```java
+@Query(value = """
+  SELECT * FROM books
+  WHERE to_tsvector('english', title) @@ plainto_tsquery('english', :searchTerms)
+  ORDER BY ts_rank(to_tsvector('english', title), plainto_tsquery('english', :searchTerms)) DESC
+  """,
+  nativeQuery = true)
+List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerms);
+```
 
 - Native SQL bypasses JPQL and is **database-engine specific**
-- Must be tested against a real database engine (not H2):
+- Must be tested against a real database engine:
   - PostgreSQL full-text search (`to_tsvector`, `plainto_tsquery`)
   - Window functions (`ROW_NUMBER()`, `RANK()`)
   - JSON operators, array types, and other vendor extensions
-- Testcontainers ensures your native queries run against the same engine as production
 
 ---
 
@@ -144,35 +141,49 @@ entityManager.clear(); // detach to force reload from DB
 
 ---
 
-## Transaction & Connection Pooling
+## How to Verify Persistence Layer in Isolation?
 
-- Verify `@Transactional` propagation and rollback behaviour in isolation:
-  - Does a failing operation roll back the entire transaction?
-  - Is `REQUIRES_NEW` creating a separate transaction as expected?
-- Test HikariCP pool exhaustion scenarios without the full application context
-- `@DataJpaTest` wraps each test in a transaction and rolls it back by default — be aware this hides commit-time behaviour
-- Use `@Commit` or `@Rollback(false)` when you need to verify post-commit state
+- What database should we use for testing? In-memory or real?
+- How to manage test data setup and cleanup?
+- How to test native queries and database-specific features?
+- How to make it work on CI and locally without external setup efforts?
 
 ---
 
-## Useful Log Levels for Persistence Tests
+## Introducing `@DataJpaTest`
 
-```yaml
-logging:
-  level:
-    org.hibernate.SQL: DEBUG                  # all SQL statements
-    org.hibernate.orm.jdbc.bind: TRACE        # bind parameter values
-    org.springframework.transaction: DEBUG    # begin / commit / rollback
-    com.zaxxer.hikari: DEBUG                  # connection pool activity
-    org.flywaydb: DEBUG                       # migration execution details
-    org.springframework.orm.jpa: DEBUG        # EntityManager lifecycle
+- Sliced test annotation for JPA repositories
+- `@JooqTest`, `@JdbcTest` for non-JPA persistence layers
+- Similar annotations exist for MongoDB, Redis, Cassandra, etc.
+
+What's inside?
+
+- Auto-configures in-memory database
+- Provides a `TestEntityManager` for convenient entity operations
+- Verify JPA entity mapping, creation and native queries
+- Uses `@Transactional` by default for all tests → rolls the transactions back after each test
+
+---
+
+## A Sample `@DataJpaTest`
+
+```java
+@DataJpaTest
+class BookRepositoryTest {
+  
+  @Autowired
+  private TestEntityManager entityManager;
+    
+  @Autowired
+  private BookRepository bookRepository;
+  
+}
 ```
 
-- `hibernate.SQL` + `jdbc.bind` together reveal the full executed query
-- `transaction` debug exposes unexpected rollbacks or missing propagation
-- `hikari` debug catches pool exhaustion and connection leak warnings
+... but which database should we use?
 
 ---
+
 
 ## In-Memory vs. Real Database
 
@@ -186,7 +197,13 @@ logging:
 
 ---
 
-## Testcontainers
+![bg right:33%](assets/generated/containers.jpg)
+
+## Testcontainers to the Rescue!
+
+```java
+static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+```
 
 - Java library that manages **real Docker containers** from inside JUnit tests
 - Container lifecycle is tied to the test: starts before, stops after
@@ -196,9 +213,28 @@ logging:
 
 ---
 
+## Testcontainers 101
+
+- Running infrastructure components (databases, message brokers, etc.) in Docker containers for our tests becomes a breeze with [Testcontainers](https://testcontainers.com/)
+- Testcontainers abstracts the rather low-level Docker Java API and provides a fluent, Java-friendly API to define and manage containers in our tests
+- Whatever you can containerize, you can test with Testcontainers
+
+Testcontainers maps the container's internal ports to random ephemeral ports on the host machine to avoid conflicts.
+
+You can see the mapped ports with `docker ps`:
+
+```shell {3}
+$ docker ps
+CONTAINER ID   IMAGE                        COMMAND                  CREATED          STATUS         PORTS                                           NAMES
+a958ee2887c6   postgres:16-alpine           "docker-entrypoint.s…"   10 seconds ago   Up 9 seconds   0.0.0.0:32776->5432/tcp, [::]:32776->5432/tcp   affectionate_cannon
+ad0f804068dc   testcontainers/ryuk:0.12.0   "/bin/ryuk"              10 seconds ago   Up 9 seconds   0.0.0.0:32775->8080/tcp, [::]:32775->8080/tcp   testcontainers-ryuk-1f9f76a6-46d4-4e19-85c1-e8364da12804
+```
+
+---
+
 ## Testcontainers & Spring Boot Integration
 
-```java
+```java {2,5,6}
 @DataJpaTest
 @Testcontainers
 class BookRepositoryTest {
@@ -212,35 +248,62 @@ class BookRepositoryTest {
 ```
 
 - `@Testcontainers` hooks the container into the JUnit 5 extension lifecycle
-- `@ServiceConnection` reads host/port from the running container and **auto-configures** Spring's datasource — no manual URL wiring needed
+- `@ServiceConnection` reads host/port from the running container and **auto-configures** Spring's datasource - no manual URL wiring needed
 
 ---
 
-<!--
+## Alternative Connection Configuration
 
-Notes:
-
-- who is not using Testcontainers
-- explain basics
-
--->
-
-## Solution: Docker & Testcontainers
-
-![bg right:33%](assets/generated/containers.jpg)
-
----
-
-## Using a Real Database
+Alternatively, we can use `@DynamicPropertySource` to programmatically set properties from the container:
 
 ```java
-@Container
-@ServiceConnection
-static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-  .withDatabaseName("testdb")
-  .withUsername("test")
-  .withPassword("test")
-  .withInitScript("init-postgres.sql"); // Initialize PostgreSQL with required extensions
+static PostgreSQLContainer<?> database =
+  new PostgreSQLContainer<>("postgres:17.2")
+    .withDatabaseName("test")
+    .withUsername("duke")
+    .withPassword("s3cret");
+
+@DynamicPropertySource
+static void properties(DynamicPropertyRegistry registry) {
+  registry.add("spring.datasource.url", database::getJdbcUrl);
+  registry.add("spring.datasource.password", database::getPassword);
+  registry.add("spring.datasource.username", database::getUsername);
+}
+```
+
+---
+
+
+## Useful Log Levels for Persistence Tests
+
+```xml
+<configuration>
+  <logger name="org.springframework.transaction.interceptor" level="TRACE"/>
+  <logger name="org.springframework.transaction" level="DEBUG"/>
+  <logger name="org.springframework.data.jpa.repository.query" level="DEBUG"/>
+  <logger name="org.springframework.orm.jpa" level="DEBUG"/>
+  
+  <logger name="jakarta.persistence.EntityManager" level="DEBUG"/>
+  
+  <logger name="org.hibernate.Session" level="DEBUG"/>
+  <logger name="org.hibernate.event.internal" level="DEBUG"/>
+  <logger name="org.hibernate.orm.jdbc.bind" level="TRACE"/>
+  
+  <logger name="com.zaxxer.hikari" level="DEBUG"/>
+</configuration>
+```
+---
+
+## Highlight SQL in Logs
+
+```yaml
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+
 ```
 
 ---

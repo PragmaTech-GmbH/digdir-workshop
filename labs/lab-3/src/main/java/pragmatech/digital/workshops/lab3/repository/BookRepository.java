@@ -10,6 +10,8 @@ import pragmatech.digital.workshops.lab3.entity.Book;
 
 public interface BookRepository extends JpaRepository<Book, Long> {
 
+  Book findByIdOrderByPublishedDateAsc(Long id);
+
   /**
    * PostgreSQL-specific: Full text search on book titles with ranking.
    * Uses PostgreSQL's to_tsvector and to_tsquery for sophisticated text searching
