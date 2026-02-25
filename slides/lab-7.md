@@ -7,7 +7,20 @@ theme: pragmatech
 
 ---
 
-<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 02.03.2026' -->
+<!-- _class: title -->
+![bg h:500 left:33%](assets/generated/demystify.png)
+
+# Testing Spring Boot Applications Demystified
+
+## Lab 7
+
+_Digdir Workshop 03.03.2026_
+
+Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](https://x.com/rieckpil)
+
+---
+
+<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 03.03.2026' -->
 <!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
 ## Discuss Exercises from Lab 6

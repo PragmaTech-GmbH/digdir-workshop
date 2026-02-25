@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
   <rect x="0" y="0" width="800" height="500" fill="#0000" rx="10" ry="10"/>
 
@@ -44,24 +44,24 @@
   <!-- Labels for arrows -->
 
   <!-- Key Features of WireMock -->
-  <text x="400" y="420" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#333">Key Benefits of WireMock</text>
+  <text x="400" y="450" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#333">Key Benefits of WireMock</text>
 
-  <circle cx="200" cy="450" r="6" fill="#28a745"/>
-  <text x="215" y="455" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Controlled test environment</text>
+  <circle cx="200" cy="470" r="6" fill="#28a745"/>
+  <text x="215" y="475" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Controlled test environment</text>
 
-  <circle cx="400" cy="450" r="6" fill="#28a745"/>
-  <text x="415" y="455" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">No network dependency</text>
+  <circle cx="400" cy="470" r="6" fill="#28a745"/>
+  <text x="415" y="475" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">No network dependency</text>
 
-  <circle cx="600" cy="450" r="6" fill="#28a745"/>
-  <text x="615" y="455" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Predictable responses</text>
+  <circle cx="600" cy="470" r="6" fill="#28a745"/>
+  <text x="615" y="475" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Predictable responses</text>
 
-  <circle cx="200" cy="480" r="6" fill="#28a745"/>
-  <text x="215" y="485" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Simulate error conditions</text>
+  <circle cx="200" cy="500" r="6" fill="#28a745"/>
+  <text x="215" y="505" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Simulate error conditions</text>
 
-  <circle cx="400" cy="480" r="6" fill="#28a745"/>
-  <text x="415" y="485" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Fast test execution</text>
+  <circle cx="400" cy="500" r="6" fill="#28a745"/>
+  <text x="415" y="505" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Fast test execution</text>
 
-  <circle cx="600" cy="480" r="6" fill="#28a745"/>
-  <text x="615" y="485" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Java integration</text>
+  <circle cx="600" cy="500" r="6" fill="#28a745"/>
+  <text x="615" y="505" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="#333">Java integration</text>
 
 </svg>
