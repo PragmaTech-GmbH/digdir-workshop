@@ -12,7 +12,7 @@ theme: pragmatech
 
 # Testing Spring Boot Applications Demystified
 
-## First Workshop Day
+## Lab 2
 
 _Digdir Workshop 02.03.2026_
 

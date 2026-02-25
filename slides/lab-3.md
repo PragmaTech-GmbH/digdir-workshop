@@ -13,7 +13,7 @@ theme: pragmatech
 
 # Testing Spring Boot Applications Demystified
 
-## First Workshop Day
+## Lab 3
 
 _Digdir Workshop 02.03.2026_
 
@@ -22,6 +22,11 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 ---
 
 ## Discuss Exercises from Lab 2
+
+- Exercise 1: `@WebMvcTest`
+  - Test that only admins can delete books
+  - Test that regular users or unauthenticated users can't delete books
+  - Test that books can be created successfully with proper JSON data
 
 ---
 
@@ -205,10 +210,10 @@ class BookRepositoryTest {
 static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 ```
 
-- Java library that manages **real Docker containers** from inside JUnit tests
+- Java library that manages **Docker containers** from inside Java code
 - Container lifecycle is tied to the test: starts before, stops after
 - `static` containers are shared across all tests in the class (faster)
-- Modules for PostgreSQL, MySQL, Redis, Kafka, LocalStack, and more
+- [Modules](https://testcontainers.com/modules/) for PostgreSQL, MySQL, Redis, Kafka, LocalStack, and more
 - Eliminates the "works on my machine" database problem
 
 ---
@@ -273,11 +278,45 @@ static void properties(DynamicPropertyRegistry registry) {
 
 ---
 
+## Putting it All Together
+
+Writing our first `@DataJpaTest`, answering the question, can we store and retrieve our JPA entity?
+
+What could go wrong?
+
+```java
+@Test
+void shouldStoreAndRetrieveEntity() {
+  Book book = new Book("978-1-2345-6789-0", "Spring Boot Testing", "Test Author", LocalDate.of(2023, 1, 1));
+  book.setStatus(BookStatus.AVAILABLE);
+
+  bookRepository.save(book);
+
+  Optional<Book> foundBook = bookRepository.findByIsbn("978-1-2345-6789-0");
+
+  assertThat(foundBook).isPresent();
+}
+```
+
+---
+
+
+![](assets/hibernate-persistence-context.svg)
+
+---
+
 
 ## Useful Log Levels for Persistence Tests
 
 ```xml
 <configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+  
   <logger name="org.springframework.transaction.interceptor" level="TRACE"/>
   <logger name="org.springframework.transaction" level="DEBUG"/>
   <logger name="org.springframework.data.jpa.repository.query" level="DEBUG"/>
@@ -308,9 +347,6 @@ spring:
 
 ---
 
-![](assets/hibernate-persistence-context.svg)
-
----
 
 ## Test Data Management
 
@@ -326,13 +362,15 @@ spring:
 
 ## Preparing Test Data
 
-**`@Sql` — declarative SQL scripts**
+**`@Sql` - declarative SQL scripts**
 
 ```java
 @Test
 @Sql("/data/sample-books.sql")
 void shouldReturnAllAvailableBooks() { ... }
 ```
+
+- `@Sql` is ideal for fixed seed data and complex multi-table setups
 
 **Repository / `TestEntityManager` — programmatic**
 
@@ -343,8 +381,7 @@ void setUp() {
 }
 ```
 
-- `@Sql` is ideal for fixed seed data and complex multi-table setups
-- Programmatic setup gives full type safety and IDE support
+- Programmatic setup gives full type safety, improved maintainability when refactoring entities and IDE support
 
 ---
 
@@ -372,6 +409,8 @@ void shouldPersistAuditTimestampAfterCommit() {  }
 
 ## Testing Native Queries
 
+Your upcoming exercise will involve testing a native query that uses PostgreSQL's full-text search capabilities: 
+
 ```java
 /**
  * PostgreSQL-specific: Full text search on book titles with ranking.
@@ -392,20 +431,7 @@ List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerm
 
 ---
 
-## Other Slices Worth Knowing
-
-| Annotation | What it tests |
-|---|---|
-| `@JsonTest` | JSON serialisation / deserialisation |
-| `@RestClientTest` | `RestClient` / `RestTemplate` HTTP clients |
-| `@DataMongoTest` | MongoDB repositories |
-
-- Each slice starts only the beans relevant to that layer — **fast context startup**
-- All other beans are excluded; use `@MockitoBean` for the rest
-
----
-
-## @JsonTest - Serialisation Slice
+## Other Slices Worth Knowing: `@JsonTest`
 
 ```java
 @JsonTest
@@ -430,7 +456,7 @@ class BookDtoJsonTest {
 
 ---
 
-## @RestClientTest - HTTP Client Slice
+## Other Slices Worth Knowing: `@RestClientTest`
 
 ```java
 @RestClientTest(BookApiClient.class)
@@ -442,9 +468,8 @@ class BookApiClientTest {
   @Test
   void shouldReturnBooksFromRemoteApi() {
     server.expect(requestTo("/api/books"))
-      .andRespond(withSuccess("""
-          [{"isbn": "978-0-13-235088-4", "title": "Clean Code"}]
-          """, MediaType.APPLICATION_JSON));
+      .andRespond(withSuccess("""[{"isbn": "978-0-13-235088-4", "title": "Clean Code"}]""",
+        MediaType.APPLICATION_JSON));
 
     assertThat(cut.fetchAll()).hasSize(1);
   }
@@ -475,13 +500,21 @@ class JpaConfig { }
 ```
 
 - `@WebMvcTest` and `@JsonTest` slices no longer need JPA on the classpath
-- Keeps `@SpringBootApplication` as a pure entry point — no cross-cutting concerns
+- Keeps `@SpringBootApplication` as a pure entry point - no cross-cutting concerns
 
 ---
 
-## Summary: Slice Testing
+## Summary: Sliced Testing
 
-TBD
+- **Core Concept**: Test a specific "slice" or layer of your application by loading a minimal, relevant part of the Spring `ApplicationContext`.
+
+- **Confidence Gained**: Helps validate parts of your application where pure unit testing is insufficient, like the web, messaging, or data layer.
+
+- **Prominent Examples:** Web layer (`@WebMvcTest`) and database layer (`@DataJpaTest`)
+
+- **Pitfalls**: Requires careful configuration to ensure only the necessary slice of the context is loaded.
+
+- **Tools**: JUnit, Mockito, Spring Test, Spring Boot, Testcontainers
 
 ---
 
