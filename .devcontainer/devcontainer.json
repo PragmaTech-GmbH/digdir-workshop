@@ -1,6 +1,6 @@
 {
   "name": "Spring Boot Testing Workshop",
-  "image": "mcr.microsoft.com/devcontainers/java:21",
+  "image": "mcr.microsoft.com/devcontainers/java:21-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
       "version": "none",
