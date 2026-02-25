@@ -407,30 +407,6 @@ void shouldPersistAuditTimestampAfterCommit() {  }
 
 ---
 
-## Testing Native Queries
-
-Your upcoming exercise will involve testing a native query that uses PostgreSQL's full-text search capabilities: 
-
-```java
-/**
- * PostgreSQL-specific: Full text search on book titles with ranking.
- * Uses PostgreSQL's to_tsvector and to_tsquery for sophisticated text searching
- * with ranking based on relevance.
- *
- * @param searchTerms the search terms (e.g. "adventure dragons fantasy")
- * @return list of books matching the search terms, ordered by relevance
- */
-@Query(value = """
-  SELECT * FROM books
-  WHERE to_tsvector('english', title) @@ plainto_tsquery('english', :searchTerms)
-  ORDER BY ts_rank(to_tsvector('english', title), plainto_tsquery('english', :searchTerms)) DESC
-  """,
-  nativeQuery = true)
-List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerms);
-```
-
----
-
 ## Other Slices Worth Knowing: `@JsonTest`
 
 ```java
@@ -459,24 +435,29 @@ class BookJsonTest {
 ## Other Slices Worth Knowing: `@RestClientTest`
 
 ```java
-@RestClientTest(BookApiClient.class)
-class BookApiClientTest {
+@RestClientTest(OpenLibraryRestClient.class)
+class OpenLibraryRestClientTest {
 
-  @Autowired private BookApiClient cut;
+  @Autowired private OpenLibraryRestClient cut;
   @Autowired private MockRestServiceServer server;
 
   @Test
-  void shouldReturnBooksFromRemoteApi() {
-    server.expect(requestTo("/api/books"))
-      .andRespond(withSuccess("""[{"isbn": "978-0-13-235088-4", "title": "Clean Code"}]""",
+  void shouldReturnBookMetadataWhenApiReturnsValidResponse() {
+    server.expect(requestTo(containsString("/isbn/9780132350884")))
+      .andRespond(withSuccess("""{"title": "Clean Code", "isbn_13": ["9780132350884"], "publishers": ["Prentice Hall"], "number_of_pages": 431}""", 
         MediaType.APPLICATION_JSON));
 
-    assertThat(cut.fetchAll()).hasSize(1);
+    BookMetadataResponse result = cut.getBookByIsbn("9780132350884");
+
+    assertThat(result.title()).isEqualTo("Clean Code");
+    assertThat(result.numberOfPages()).isEqualTo(431);
   }
 }
 ```
 
+- Only works with `RestClient` / `RestTemplate` - **not** `WebClient` (use WireMock instead)
 - Loads only the target client bean + `MockRestServiceServer`
+- No web server started, no database — full example in `labs/lab-4`
 
 ---
 
@@ -514,6 +495,30 @@ class JpaConfig { }
 - **Pitfalls**: Requires careful configuration to ensure only the necessary slice of the context is loaded.
 
 - **Tools**: JUnit, Mockito, Spring Test, Spring Boot, Testcontainers
+
+--- 
+
+## Testing Native Queries
+
+Your upcoming exercise will involve testing a native query that uses PostgreSQL's full-text search capabilities:
+
+```java
+/**
+ * PostgreSQL-specific: Full text search on book titles with ranking.
+ * Uses PostgreSQL's to_tsvector and to_tsquery for sophisticated text searching
+ * with ranking based on relevance.
+ *
+ * @param searchTerms the search terms (e.g. "adventure dragons fantasy")
+ * @return list of books matching the search terms, ordered by relevance
+ */
+@Query(value = """
+  SELECT * FROM books
+  WHERE to_tsvector('english', title) @@ plainto_tsquery('english', :searchTerms)
+  ORDER BY ts_rank(to_tsvector('english', title), plainto_tsquery('english', :searchTerms)) DESC
+  """,
+  nativeQuery = true)
+List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerms);
+```
 
 ---
 

@@ -7,6 +7,9 @@ spring:
     open-in-view: false
   application:
     name: lab-4
+  docker:
+    compose:
+      file: labs/lab-4/compose.yaml
 
 # Book Metadata API (OpenLibrary)
 book:
