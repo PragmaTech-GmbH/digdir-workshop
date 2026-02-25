@@ -7,14 +7,16 @@
       "installMaven": true,
       "mavenVersion": "3.9.12"
     },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false
+    }
   },
   "customizations": {
     "vscode": {
       "extensions": [
         "vscjava.vscode-java-pack",
         "vscjava.vscode-spring-boot-dashboard",
-        "vscjava.vscode-java-test ",
+        "vscjava.vscode-java-test",
         "vmware.vscode-boot-dev-pack",
         "redhat.java",
         "redhat.vscode-xml",
