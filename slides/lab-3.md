@@ -372,7 +372,7 @@ void shouldReturnAllAvailableBooks() { ... }
 
 - `@Sql` is ideal for fixed seed data and complex multi-table setups
 
-**Repository / `TestEntityManager` — programmatic**
+**Repository / `TestEntityManager` - programmatic**
 
 ```java
 @BeforeEach
@@ -435,16 +435,17 @@ List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerm
 
 ```java
 @JsonTest
-class BookDtoJsonTest {
+class BookJsonTest {
 
   @Autowired
-  private JacksonTester<BookDto> json;
+  private JacksonTester<Book> bookJson;
 
   @Test
-  void shouldSerialiseStatusAsString() throws Exception {
-    var book = new BookDto("978-0-13-235088-4", "Clean Code", BookStatus.AVAILABLE);
+  void shouldSerializeBookStatusAsStringWhenWritingBook() throws Exception {
+    Book book = new Book("978-0-13-235088-4", "Clean Code", "Robert C. Martin",
+      LocalDate.of(2008, 8, 1));
 
-    assertThat(json.write(book))
+    assertThat(bookJson.write(book))
       .extractingJsonPathStringValue("$.status")
       .isEqualTo("AVAILABLE");
   }
@@ -452,7 +453,6 @@ class BookDtoJsonTest {
 ```
 
 - Loads only Jackson configuration, `@JsonComponent`, mixins
-- No controllers, no repositories, no security
 
 ---
 
@@ -477,7 +477,6 @@ class BookApiClientTest {
 ```
 
 - Loads only the target client bean + `MockRestServiceServer`
-- No web server started, no database
 
 ---
 
