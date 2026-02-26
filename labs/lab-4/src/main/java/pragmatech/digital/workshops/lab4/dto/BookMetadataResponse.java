@@ -8,67 +8,60 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record BookMetadataResponse(
-  // Core book info
   String key,
   String title,
+  String subtitle,
 
-  // ISBN identifiers
-  @JsonProperty("isbn_13")
-  List<String> isbn13,
-  @JsonProperty("isbn_10")
-  List<String> isbn10,
-
-  // Publication info
-  @JsonProperty("publish_date")
-  String publishDate,
-  List<String> publishers,
-
-  // Author references - need to be fetched separately
-  @JsonProperty("authors")
-  List<Map<String, String>> authorRefs,
-
-  // Physical details
   @JsonProperty("number_of_pages")
   Integer numberOfPages,
-  @JsonProperty("physical_format")
-  String physicalFormat,
 
-  // Additional metadata
-  String description,
-  @JsonProperty("subjects")
-  List<String> subjects,
-  @JsonProperty("cover")
-  Map<String, Integer> covers
+  @JsonProperty("publish_date")
+  String publishDate,
+
+  List<PublisherInfo> publishers,
+  List<AuthorInfo> authors,
+  List<SubjectInfo> subjects,
+  Map<String, String> cover,
+  BookIdentifiers identifiers
 ) {
-  // Convenience methods
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record PublisherInfo(String name) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record AuthorInfo(String name, String url) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record SubjectInfo(String name, String url) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BookIdentifiers(
+    @JsonProperty("isbn_13") List<String> isbn13,
+    @JsonProperty("isbn_10") List<String> isbn10
+  ) {}
+
   public String getMainIsbn() {
-    if (isbn13 != null && !isbn13.isEmpty()) {
-      return isbn13.get(0);
-    }
-    else if (isbn10 != null && !isbn10.isEmpty()) {
-      return isbn10.get(0);
+    if (identifiers != null) {
+      if (identifiers.isbn13() != null && !identifiers.isbn13().isEmpty()) {
+        return identifiers.isbn13().get(0);
+      }
+      if (identifiers.isbn10() != null && !identifiers.isbn10().isEmpty()) {
+        return identifiers.isbn10().get(0);
+      }
     }
     return null;
   }
 
   public String getPublisher() {
     if (publishers != null && !publishers.isEmpty()) {
-      return publishers.get(0);
-    }
-    return null;
-  }
-
-  public Integer getCoverId() {
-    if (covers != null && covers.containsKey("medium")) {
-      return covers.get("medium");
+      return publishers.get(0).name();
     }
     return null;
   }
 
   public String getCoverUrl() {
-    Integer coverId = getCoverId();
-    if (coverId != null) {
-      return "https://covers.openlibrary.org/b/id/" + coverId + "-M.jpg";
+    if (cover != null) {
+      return cover.get("medium");
     }
     return null;
   }

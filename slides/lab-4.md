@@ -118,8 +118,6 @@ public CommandLineRunner initializeBookMetadata() {
 
 ---
 
-
-
 ## HTTP Communication During Tests
 
 - Unreliable when performing real HTTP calls during tests
@@ -187,12 +185,32 @@ wireMockServer.stubFor(get("/isbn/123")
 **Response templating** - inject request values into the response body
 
 ```java
-.willReturn(aResponse()
-  .withBodyFile("book-template.json")
-  .withTransformers("response-template"))
+wireMockServer.stubFor(get(urlPathMatching("/users/.*"))
+  .willReturn(aResponse()
+    .withHeader("Content-Type", "application/json")
+    .withBody(
+        {
+          "id": "{{request.pathSegments.[1]}}",
+          "userAgent": "{{request.headers.User-Agent}}",
+          "timestamp": "{{now format='yyyy-MM-dd'}}"
+        }
+       )
+    .withTransformers("response-template")));
 ```
 
+---
+
 **Proxying & Recording** - record real API responses once, replay offline
+
+```java
+wireMockServer.startRecording(RecordSpec.forTarget("https://openlibrary.org/")
+    .makeStubsPersistent(true)
+    .build());
+
+// ... make real requests ...
+
+wireMockServer.stopRecording();
+```
 
 ---
 
@@ -236,7 +254,7 @@ class PostgresTestcontainerConfig {
 }
 ```
 
-- `@ServiceConnection` auto-configures the datasource — no manual URL overrides needed
+- Provide external infrastructure dependencies (databases, caches, message brokers) via **Testcontainers**
 - Declare `static` containers to share across tests in a class → faster suites
 - Same image version as production: eliminates "works on my machine" surprises
 
@@ -244,10 +262,10 @@ class PostgresTestcontainerConfig {
 
 ## Challenge 3: Security
 
-Imagine the application is an **OAuth 2 Resource Server** — every request must carry a JWT
-
-- Don't spin up a real authorisation server in tests
-- Spring Security Test provides mock contexts instead
+- Actual test setup depends on the used authentication mechanism:
+  - **OAuth2 Resource Server** - every request must carry a valid and signed JWT
+  - **Basic Auth** - provide test users
+  - **API Keys** - provide test keys
 
 ```java
 // MockMvc: inject a mock security context — no real token exchange
@@ -258,9 +276,6 @@ mockMvc.perform(get("/api/books/1")
 // Annotation shortcut
 @WithMockUser(roles = "USER")
 void shouldReturnBook() { ... }
-
-// WebTestClient / TestRestTemplate: pass real Basic Auth credentials
-.headers(h -> h.setBasicAuth("user", "user"))
 ```
 
 ---

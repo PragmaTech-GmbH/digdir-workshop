@@ -17,3 +17,5 @@ book:
     api:
       url: https://openlibrary.org
       timeout: 5
+server:
+  port: 8888

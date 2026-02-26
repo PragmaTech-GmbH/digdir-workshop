@@ -1,8 +1,11 @@
 package pragmatech.digital.workshops.lab4.client;
 
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import pragmatech.digital.workshops.lab4.dto.BookMetadataResponse;
@@ -28,9 +31,18 @@ public class OpenLibraryRestClient {
 
   public BookMetadataResponse getBookByIsbn(String isbn) {
     logger.debug("Fetching book metadata for ISBN: {}", isbn);
-    return restClient.get()
-      .uri("/isbn/{isbn}", isbn)
+    String bibKey = "ISBN:" + isbn;
+
+    Map<String, BookMetadataResponse> result = restClient.get()
+      .uri(uriBuilder -> uriBuilder
+        .path("/api/books")
+        .queryParam("bibkeys", bibKey)
+        .queryParam("format", "json")
+        .queryParam("jscmd", "data")
+        .build())
       .retrieve()
-      .body(BookMetadataResponse.class);
+      .body(new ParameterizedTypeReference<>() {});
+
+    return result != null ? result.get(bibKey) : null;
   }
 }

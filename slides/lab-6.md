@@ -25,9 +25,12 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## Discuss Exercises from Lab 5
 
+- MockMvcIntegrationTest
+- Solution2WebTestClientIntegrationTest
+
 ---
 
-![bg left:33%](assets/generated/lab-6.jpg)
+![bg left:33%](assets/lab-6.jpg)
 
 # Lab 6
 
@@ -39,7 +42,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## The Application Has Grown
 
-The team kept shipping features — and writing integration tests:
+The team kept shipping features - and writing integration tests:
 
 - `@SpringBootTest` for each feature flow
 - Different WireMock configurations per test class
@@ -97,19 +100,108 @@ After optimisation:     1 context  × 15s  =  15s startup overhead
 - Cache is per-JVM process (not shared across forks or CI agents)
 - Default size: **32** entries — LRU eviction after that
 
-```
-┌────────────────────────────────────────────┐
-│  DefaultContextCache                        │
-│                                             │
-│  key: MergedContextConfiguration           │
-│       └─ profiles + properties + mocks +  │
-│          initializers + config classes     │
-│                                             │
-│  value: ApplicationContext (reused!)        │
-└────────────────────────────────────────────┘
-```
+---
+
+## Integration Testing - The Need for Speed
+
+- **The Problem:** Integration tests require a started & initialized Spring `ApplicationContext`, which slows down the build
+- **The Solution:** Spring Test `TestContext` Caching – stores an already started Spring `ApplicationContext` for reuse
+- This feature is part of Spring Test (included in every Spring Boot project via `spring-boot-starter-test`)
+
+Example of speed improvement:
+
+![](assets/context-cache-improvements.png)
+
 
 ---
+
+![](assets/caching-explained-00.png)
+
+---
+
+![](assets/caching-explained-01.png)
+
+---
+
+![](assets/caching-explained-02.png)
+
+---
+
+### How the Cache Key is Built
+
+```java
+// DefaultContextCache.java
+private final Map<MergedContextConfiguration, ApplicationContext> contextMap =
+  Collections.synchronizedMap(new LruCache(32, 0.75f));
+```
+
+The following information is part of the Cache Key (`MergedContextConfiguration`):
+
+- activeProfiles (`@ActiveProfiles`)
+- contextInitializersClasses (`@ContextConfiguration`)
+- propertySourceLocations (`@TestPropertySource`)
+- propertySourceProperties (`@TestPropertySource`)
+- contextCustomizer (`@MockitoBean`, `@MockBean`, `@DynamicPropertySource`, ...)
+- etc.
+
+---
+###  Detect Context Restarts - Visually
+
+![](assets/context-caching-hints.png)
+
+
+---
+
+### Detect Context Restarts - with Logs
+
+![](assets/context-caching-logs.png)
+
+---
+
+### Detect Context Restarts - with Tooling
+
+![center](assets/spring-test-profiler-logo.png)
+
+An [open-source Spring Test utility](https://github.com/PragmaTech-GmbH/spring-test-profiler) that provides visualization and insights for Spring Test execution, with a focus on Spring context caching statistics.
+
+**Overall goal**: Identify optimization opportunities in your Spring Test suite to speed up your builds and ship to production faster and with more confidence.
+
+---
+
+### The Final Boss
+
+Developers tend to consult AI/StackOverflow for integration test issues and often copy advice from the internet without knowing the implications:
+
+```java
+@SpringBootTest
+@DirtiesContext
+// this instructs Spring to remove the context from the cache
+// and rebuild a new context on every request
+public abstract class AbstractIntegrationTest {
+
+}
+```
+
+The setup above will **disable** the context caching feature and slow down the builds significantly!
+
+---
+
+### New in Spring Framework 7: Pausing Contexts
+
+See Release Notes von [Spring Framework 7.0.0 M7](https://spring.io/blog/2025/07/17/spring-framework-7-0-0-M7-available-now).
+
+> Pausing of Test Application Contexts
+>
+> The Spring TestContext framework is caching application context instances within test suites for faster runs. As of Spring Framework 7.0, we now pause test application contexts when
+> they're not used.
+>
+> This means an application context stored in the context cache will be stopped when it is no longer actively in use and automatically restarted the next time the
+> context is retrieved from the cache.
+>
+> Specifically, the latter will restart all auto-startup beans in the application context, effectively restoring the lifecycle state.
+
+---
+
 
 ## How the Cache Key Is Built
 
@@ -122,8 +214,6 @@ After optimisation:     1 context  × 15s  =  15s startup overhead
 | Property source locations | `@TestPropertySource(locations = ...)` |
 | Inline properties | `@TestPropertySource(properties = ...)` or `@SpringBootTest(properties = ...)` |
 | Bean overrides | `@MockitoBean`, `@SpyBean` |
-
-→ **Any difference = new context**
 
 ---
 

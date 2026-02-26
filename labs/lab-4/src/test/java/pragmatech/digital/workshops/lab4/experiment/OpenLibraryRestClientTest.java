@@ -31,13 +31,17 @@ class OpenLibraryRestClientTest {
   void shouldReturnBookMetadataWhenApiReturnsValidResponse() {
     String isbn = "9780132350884";
 
-    server.expect(requestTo(containsString("/isbn/" + isbn)))
+    server.expect(requestTo(containsString("/api/books")))
       .andRespond(withSuccess("""
         {
-          "title": "Clean Code",
-          "isbn_13": ["9780132350884"],
-          "publishers": ["Prentice Hall"],
-          "number_of_pages": 431
+          "ISBN:9780132350884": {
+            "title": "Clean Code",
+            "identifiers": {
+              "isbn_13": ["9780132350884"]
+            },
+            "publishers": [{"name": "Prentice Hall"}],
+            "number_of_pages": 431
+          }
         }
         """, MediaType.APPLICATION_JSON));
 
@@ -54,7 +58,7 @@ class OpenLibraryRestClientTest {
   void shouldThrowExceptionWhenBookIsNotFound() {
     String isbn = "0000000000000";
 
-    server.expect(requestTo(containsString("/isbn/" + isbn)))
+    server.expect(requestTo(containsString("/api/books")))
       .andRespond(withStatus(HttpStatus.NOT_FOUND));
 
     assertThatThrownBy(() -> cut.getBookByIsbn(isbn))
@@ -65,7 +69,7 @@ class OpenLibraryRestClientTest {
   void shouldThrowExceptionWhenServerReturnsInternalError() {
     String isbn = "9780132350884";
 
-    server.expect(requestTo(containsString("/isbn/" + isbn)))
+    server.expect(requestTo(containsString("/api/books")))
       .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
     assertThatThrownBy(() -> cut.getBookByIsbn(isbn))

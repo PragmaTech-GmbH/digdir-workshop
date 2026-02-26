@@ -24,11 +24,9 @@ import pragmatech.digital.workshops.lab4.service.BookService;
 public class BookController {
 
   private final BookService bookService;
-  private final BookRepository bookRepository;
 
   public BookController(BookService bookService, BookRepository bookRepository) {
     this.bookService = bookService;
-    this.bookRepository = bookRepository;
   }
 
   @GetMapping

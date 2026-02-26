@@ -5,6 +5,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import org.springframework.http.MediaType;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 
 public class OpenLibraryApiStub {
 
@@ -16,7 +17,8 @@ public class OpenLibraryApiStub {
 
   public void stubForSuccessfulBookResponse(String isbn) {
     this.wireMockServer.stubFor(
-      WireMock.get("/isbn/" + isbn)
+      WireMock.get(urlPathEqualTo("/api/books"))
+        .withQueryParam("bibkeys", WireMock.equalTo("ISBN:" + isbn))
         .willReturn(
           aResponse()
             .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
