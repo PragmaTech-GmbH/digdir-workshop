@@ -645,7 +645,6 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: unit-tests          # ← Only run if unit tests pass
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

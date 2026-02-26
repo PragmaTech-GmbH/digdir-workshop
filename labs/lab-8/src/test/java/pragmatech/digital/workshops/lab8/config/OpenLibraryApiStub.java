@@ -22,4 +22,13 @@ public class OpenLibraryApiStub {
             .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
             .withBodyFile(isbn + "-success.json")));
   }
+
+  public void stubForSuccessfulBookResponseWithFile(String isbn, String responseFileName) {
+    this.wireMockServer.stubFor(
+      WireMock.get("/isbn/" + isbn)
+        .willReturn(
+          aResponse()
+            .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+            .withBodyFile(responseFileName + "-success.json")));
+  }
 }

@@ -7,4 +7,6 @@
   </root>
 
   <logger name="org.springframework.test.context" level="TRACE"/>
+
+  <logger name="io.netty.resolver.dns.DnsServerAddressStreamProviders" level="OFF"/>
 </configuration>

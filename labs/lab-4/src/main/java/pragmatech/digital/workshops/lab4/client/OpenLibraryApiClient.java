@@ -7,9 +7,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import pragmatech.digital.workshops.lab4.dto.BookMetadataResponse;
 
-/**
- * Client for interacting with the OpenLibrary API.
- */
 @Component
 public class OpenLibraryApiClient {
 

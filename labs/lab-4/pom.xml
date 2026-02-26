@@ -16,7 +16,7 @@
 
   <properties>
     <java.version>21</java.version>
-    <wiremock.version>3.13.0</wiremock.version>
+    <wiremock.version>3.13.2</wiremock.version>
   </properties>
 
   <dependencies>
@@ -132,6 +132,11 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <jvmArguments>
+            --enable-native-access=ALL-UNNAMED
+          </jvmArguments>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

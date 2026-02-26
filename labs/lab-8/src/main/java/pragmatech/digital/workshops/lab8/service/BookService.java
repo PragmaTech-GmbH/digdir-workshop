@@ -5,12 +5,14 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import pragmatech.digital.workshops.lab8.client.OpenLibraryApiClient;
 import pragmatech.digital.workshops.lab8.dto.BookCreationRequest;
 import pragmatech.digital.workshops.lab8.dto.BookMetadataResponse;
 import pragmatech.digital.workshops.lab8.dto.BookUpdateRequest;
 import pragmatech.digital.workshops.lab8.entity.Book;
+import pragmatech.digital.workshops.lab8.event.BookCreatedEvent;
 import pragmatech.digital.workshops.lab8.exception.BookAlreadyExistsException;
 import pragmatech.digital.workshops.lab8.repository.BookRepository;
 
@@ -21,10 +23,13 @@ public class BookService {
 
   private final BookRepository bookRepository;
   private final OpenLibraryApiClient openLibraryApiClient;
+  private final ApplicationEventPublisher eventPublisher;
 
-  public BookService(BookRepository bookRepository, OpenLibraryApiClient openLibraryApiClient) {
+  public BookService(BookRepository bookRepository, OpenLibraryApiClient openLibraryApiClient,
+      ApplicationEventPublisher eventPublisher) {
     this.bookRepository = bookRepository;
     this.openLibraryApiClient = openLibraryApiClient;
+    this.eventPublisher = eventPublisher;
   }
 
   public Long createBook(BookCreationRequest request) {
@@ -44,6 +49,7 @@ public class BookService {
     book.setThumbnailUrl(metadata.getCoverUrl());
 
     Book savedBook = bookRepository.save(book);
+    eventPublisher.publishEvent(new BookCreatedEvent(savedBook.getId(), savedBook.getIsbn(), savedBook.getTitle()));
     return savedBook.getId();
   }
 
