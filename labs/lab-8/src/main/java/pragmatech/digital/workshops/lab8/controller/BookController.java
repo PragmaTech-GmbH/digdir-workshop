@@ -16,7 +16,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import pragmatech.digital.workshops.lab8.dto.BookCreationRequest;
 import pragmatech.digital.workshops.lab8.dto.BookUpdateRequest;
 import pragmatech.digital.workshops.lab8.entity.Book;
-import pragmatech.digital.workshops.lab8.repository.BookRepository;
 import pragmatech.digital.workshops.lab8.service.BookService;
 
 @RestController
@@ -24,11 +23,9 @@ import pragmatech.digital.workshops.lab8.service.BookService;
 public class BookController {
 
   private final BookService bookService;
-  private final BookRepository bookRepository;
 
-  public BookController(BookService bookService, BookRepository bookRepository) {
+  public BookController(BookService bookService) {
     this.bookService = bookService;
-    this.bookRepository = bookRepository;
   }
 
   @GetMapping

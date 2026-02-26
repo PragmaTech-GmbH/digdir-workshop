@@ -1,5 +1,7 @@
 # Testing Spring Boot Applications Demystified Workshop
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/PragmaTech-GmbH/digdir-workshop)
+
 A two-day workshop to help developers become more confident and productive when implementing automated tests for Spring Boot applications.
 
 Proudly presented by [PragmaTech GmbH](https://pragmatech.digital/).

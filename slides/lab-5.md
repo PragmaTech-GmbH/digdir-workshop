@@ -12,15 +12,15 @@ theme: pragmatech
 
 # Testing Spring Boot Applications Demystified
 
-## Full-Day Workshop
+## Lab 5
 
-_Digdir Workshop 02.03.2026_
+_Digdir Workshop 03.03.2026_
 
 Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](https://x.com/rieckpil)
 
 ---
 
-<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 02.03.2026' -->
+<!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 03.03.2026' -->
 <!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
 ## Quick Recap: Day 1

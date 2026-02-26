@@ -1,32 +1,35 @@
 package pragmatech.digital.workshops.lab4.client;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.Map;
+
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import pragmatech.digital.workshops.lab4.dto.BookMetadataResponse;
 
-/**
- * Client for interacting with the OpenLibrary API.
- */
 @Component
 public class OpenLibraryApiClient {
 
-  private static final Logger logger = LoggerFactory.getLogger(OpenLibraryApiClient.class);
-
   private final WebClient webClient;
 
-  @Autowired
   public OpenLibraryApiClient(WebClient openLibraryWebClient) {
     this.webClient = openLibraryWebClient;
   }
 
   public BookMetadataResponse getBookByIsbn(String isbn) {
-    return webClient.get()
-      .uri("/isbn/{isbn}", isbn)
+    String bibKey = "ISBN:" + isbn;
+
+    Map<String, BookMetadataResponse> result = webClient.get()
+      .uri(uriBuilder -> uriBuilder
+        .path("/api/books")
+        .queryParam("bibkeys", bibKey)
+        .queryParam("format", "json")
+        .queryParam("jscmd", "data")
+        .build())
       .retrieve()
-      .bodyToMono(BookMetadataResponse.class)
+      .bodyToMono(new ParameterizedTypeReference<Map<String, BookMetadataResponse>>() {})
       .block();
+
+    return result != null ? result.get(bibKey) : null;
   }
 }

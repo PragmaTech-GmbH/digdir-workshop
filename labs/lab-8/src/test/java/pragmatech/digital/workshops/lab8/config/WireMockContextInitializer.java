@@ -33,6 +33,11 @@ public class WireMockContextInitializer implements ApplicationContextInitializer
     openLibraryStub.stubForSuccessfulBookResponse("9780201633610");
     openLibraryStub.stubForSuccessfulBookResponse("9780132350884");
 
+    // Dashed-format stubs for BookCreationRequest (pattern: 978-XXXXXXXXXX)
+    openLibraryStub.stubForSuccessfulBookResponseWithFile("978-0134757599", "9780134757599");
+    openLibraryStub.stubForSuccessfulBookResponseWithFile("978-0201633610", "9780201633610");
+    openLibraryStub.stubForSuccessfulBookResponseWithFile("978-0132350884", "9780132350884");
+
     applicationContext.getBeanFactory().registerSingleton("wireMockServer", wireMockServer);
     applicationContext.getBeanFactory().registerSingleton("openLibraryStub", openLibraryStub);
 

@@ -13,7 +13,7 @@ theme: pragmatech
 
 # Testing Spring Boot Applications Demystified
 
-## First Workshop Day
+## Lab 3
 
 _Digdir Workshop 02.03.2026_
 
@@ -22,6 +22,11 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 ---
 
 ## Discuss Exercises from Lab 2
+
+- Exercise 1: `@WebMvcTest`
+  - Test that only admins can delete books
+  - Test that regular users or unauthenticated users can't delete books
+  - Test that books can be created successfully with proper JSON data
 
 ---
 
@@ -205,10 +210,10 @@ class BookRepositoryTest {
 static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 ```
 
-- Java library that manages **real Docker containers** from inside JUnit tests
+- Java library that manages **Docker containers** from inside Java code
 - Container lifecycle is tied to the test: starts before, stops after
 - `static` containers are shared across all tests in the class (faster)
-- Modules for PostgreSQL, MySQL, Redis, Kafka, LocalStack, and more
+- [Modules](https://testcontainers.com/modules/) for PostgreSQL, MySQL, Redis, Kafka, LocalStack, and more
 - Eliminates the "works on my machine" database problem
 
 ---
@@ -273,11 +278,45 @@ static void properties(DynamicPropertyRegistry registry) {
 
 ---
 
+## Putting it All Together
+
+Writing our first `@DataJpaTest`, answering the question, can we store and retrieve our JPA entity?
+
+What could go wrong?
+
+```java
+@Test
+void shouldStoreAndRetrieveEntity() {
+  Book book = new Book("978-1-2345-6789-0", "Spring Boot Testing", "Test Author", LocalDate.of(2023, 1, 1));
+  book.setStatus(BookStatus.AVAILABLE);
+
+  bookRepository.save(book);
+
+  Optional<Book> foundBook = bookRepository.findByIsbn("978-1-2345-6789-0");
+
+  assertThat(foundBook).isPresent();
+}
+```
+
+---
+
+
+![](assets/hibernate-persistence-context.svg)
+
+---
+
 
 ## Useful Log Levels for Persistence Tests
 
 ```xml
 <configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+  
   <logger name="org.springframework.transaction.interceptor" level="TRACE"/>
   <logger name="org.springframework.transaction" level="DEBUG"/>
   <logger name="org.springframework.data.jpa.repository.query" level="DEBUG"/>
@@ -308,9 +347,6 @@ spring:
 
 ---
 
-![](assets/hibernate-persistence-context.svg)
-
----
 
 ## Test Data Management
 
@@ -326,7 +362,7 @@ spring:
 
 ## Preparing Test Data
 
-**`@Sql` — declarative SQL scripts**
+**`@Sql` - declarative SQL scripts**
 
 ```java
 @Test
@@ -334,7 +370,9 @@ spring:
 void shouldReturnAllAvailableBooks() { ... }
 ```
 
-**Repository / `TestEntityManager` — programmatic**
+- `@Sql` is ideal for fixed seed data and complex multi-table setups
+
+**Repository / `TestEntityManager` - programmatic**
 
 ```java
 @BeforeEach
@@ -343,8 +381,7 @@ void setUp() {
 }
 ```
 
-- `@Sql` is ideal for fixed seed data and complex multi-table setups
-- Programmatic setup gives full type safety and IDE support
+- Programmatic setup gives full type safety, improved maintainability when refactoring entities and IDE support
 
 ---
 
@@ -370,55 +407,21 @@ void shouldPersistAuditTimestampAfterCommit() {  }
 
 ---
 
-## Testing Native Queries
-
-```java
-/**
- * PostgreSQL-specific: Full text search on book titles with ranking.
- * Uses PostgreSQL's to_tsvector and to_tsquery for sophisticated text searching
- * with ranking based on relevance.
- *
- * @param searchTerms the search terms (e.g. "adventure dragons fantasy")
- * @return list of books matching the search terms, ordered by relevance
- */
-@Query(value = """
-  SELECT * FROM books
-  WHERE to_tsvector('english', title) @@ plainto_tsquery('english', :searchTerms)
-  ORDER BY ts_rank(to_tsvector('english', title), plainto_tsquery('english', :searchTerms)) DESC
-  """,
-  nativeQuery = true)
-List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerms);
-```
-
----
-
-## Other Slices Worth Knowing
-
-| Annotation | What it tests |
-|---|---|
-| `@JsonTest` | JSON serialisation / deserialisation |
-| `@RestClientTest` | `RestClient` / `RestTemplate` HTTP clients |
-| `@DataMongoTest` | MongoDB repositories |
-
-- Each slice starts only the beans relevant to that layer — **fast context startup**
-- All other beans are excluded; use `@MockitoBean` for the rest
-
----
-
-## @JsonTest - Serialisation Slice
+## Other Slices Worth Knowing: `@JsonTest`
 
 ```java
 @JsonTest
-class BookDtoJsonTest {
+class BookJsonTest {
 
   @Autowired
-  private JacksonTester<BookDto> json;
+  private JacksonTester<Book> bookJson;
 
   @Test
-  void shouldSerialiseStatusAsString() throws Exception {
-    var book = new BookDto("978-0-13-235088-4", "Clean Code", BookStatus.AVAILABLE);
+  void shouldSerializeBookStatusAsStringWhenWritingBook() throws Exception {
+    Book book = new Book("978-0-13-235088-4", "Clean Code", "Robert C. Martin",
+      LocalDate.of(2008, 8, 1));
 
-    assertThat(json.write(book))
+    assertThat(bookJson.write(book))
       .extractingJsonPathStringValue("$.status")
       .isEqualTo("AVAILABLE");
   }
@@ -426,33 +429,35 @@ class BookDtoJsonTest {
 ```
 
 - Loads only Jackson configuration, `@JsonComponent`, mixins
-- No controllers, no repositories, no security
 
 ---
 
-## @RestClientTest - HTTP Client Slice
+## Other Slices Worth Knowing: `@RestClientTest`
 
 ```java
-@RestClientTest(BookApiClient.class)
-class BookApiClientTest {
+@RestClientTest(OpenLibraryRestClient.class)
+class OpenLibraryRestClientTest {
 
-  @Autowired private BookApiClient cut;
+  @Autowired private OpenLibraryRestClient cut;
   @Autowired private MockRestServiceServer server;
 
   @Test
-  void shouldReturnBooksFromRemoteApi() {
-    server.expect(requestTo("/api/books"))
-      .andRespond(withSuccess("""
-          [{"isbn": "978-0-13-235088-4", "title": "Clean Code"}]
-          """, MediaType.APPLICATION_JSON));
+  void shouldReturnBookMetadataWhenApiReturnsValidResponse() {
+    server.expect(requestTo(containsString("/isbn/9780132350884")))
+      .andRespond(withSuccess("""{"title": "Clean Code", "isbn_13": ["9780132350884"], "publishers": ["Prentice Hall"], "number_of_pages": 431}""", 
+        MediaType.APPLICATION_JSON));
 
-    assertThat(cut.fetchAll()).hasSize(1);
+    BookMetadataResponse result = cut.getBookByIsbn("9780132350884");
+
+    assertThat(result.title()).isEqualTo("Clean Code");
+    assertThat(result.numberOfPages()).isEqualTo(431);
   }
 }
 ```
 
+- Only works with `RestClient` / `RestTemplate` - **not** `WebClient` (use WireMock instead)
 - Loads only the target client bean + `MockRestServiceServer`
-- No web server started, no database
+- No web server started, no database — full example in `labs/lab-4`
 
 ---
 
@@ -475,13 +480,45 @@ class JpaConfig { }
 ```
 
 - `@WebMvcTest` and `@JsonTest` slices no longer need JPA on the classpath
-- Keeps `@SpringBootApplication` as a pure entry point — no cross-cutting concerns
+- Keeps `@SpringBootApplication` as a pure entry point - no cross-cutting concerns
 
 ---
 
-## Summary: Slice Testing
+## Summary: Sliced Testing
 
-TBD
+- **Core Concept**: Test a specific "slice" or layer of your application by loading a minimal, relevant part of the Spring `ApplicationContext`.
+
+- **Confidence Gained**: Helps validate parts of your application where pure unit testing is insufficient, like the web, messaging, or data layer.
+
+- **Prominent Examples:** Web layer (`@WebMvcTest`) and database layer (`@DataJpaTest`)
+
+- **Pitfalls**: Requires careful configuration to ensure only the necessary slice of the context is loaded.
+
+- **Tools**: JUnit, Mockito, Spring Test, Spring Boot, Testcontainers
+
+--- 
+
+## Testing Native Queries
+
+Your upcoming exercise will involve testing a native query that uses PostgreSQL's full-text search capabilities:
+
+```java
+/**
+ * PostgreSQL-specific: Full text search on book titles with ranking.
+ * Uses PostgreSQL's to_tsvector and to_tsquery for sophisticated text searching
+ * with ranking based on relevance.
+ *
+ * @param searchTerms the search terms (e.g. "adventure dragons fantasy")
+ * @return list of books matching the search terms, ordered by relevance
+ */
+@Query(value = """
+  SELECT * FROM books
+  WHERE to_tsvector('english', title) @@ plainto_tsquery('english', :searchTerms)
+  ORDER BY ts_rank(to_tsvector('english', title), plainto_tsquery('english', :searchTerms)) DESC
+  """,
+  nativeQuery = true)
+List<Book> searchBooksByTitleWithRanking(@Param("searchTerms") String searchTerms);
+```
 
 ---
 

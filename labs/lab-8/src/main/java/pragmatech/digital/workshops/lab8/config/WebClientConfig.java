@@ -1,5 +1,6 @@
 package pragmatech.digital.workshops.lab8.config;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
@@ -19,6 +20,11 @@ import reactor.netty.http.client.HttpClient;
 
 @Configuration
 public class WebClientConfig {
+
+  @Bean
+  public Clock clock() {
+    return Clock.systemDefaultZone();
+  }
 
   @Bean
   public WebClient openLibraryWebClient(

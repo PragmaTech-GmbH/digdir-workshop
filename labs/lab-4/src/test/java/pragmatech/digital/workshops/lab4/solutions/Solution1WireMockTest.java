@@ -13,6 +13,7 @@ import pragmatech.digital.workshops.lab4.dto.BookMetadataResponse;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,7 +50,7 @@ class Solution1WireMockTest {
     String isbn = "9780132350884";
 
     wireMockServer.stubFor(
-      get("/isbn/" + isbn)
+      get(urlPathEqualTo("/api/books"))
         .willReturn(aResponse()
           .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
           .withBodyFile(isbn + "-success.json"))
@@ -72,7 +73,7 @@ class Solution1WireMockTest {
     String isbn = "9999999999";
 
     wireMockServer.stubFor(
-      get("/isbn/" + isbn)
+      get(urlPathEqualTo("/api/books"))
         .willReturn(aResponse()
           .withStatus(500)
           .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -95,7 +96,7 @@ class Solution1WireMockTest {
    * ```java
    * public BookMetadataResponse getBookByIsbn(String isbn) {
    * return webClient.get()
-   * .uri("/isbn/{isbn}", isbn)
+   * .uri(uri -> uri.path("/api/books").queryParam("bibkeys", "ISBN:" + isbn).queryParam("format", "json").queryParam("jscmd", "data").build())
    * .retrieve()
    * .onStatus(status -> status.value() == 404,
    * response -> java.util.concurrent.Flow.Publisher.empty())
@@ -111,7 +112,7 @@ class Solution1WireMockTest {
     String isbn = "9999999999";
 
     wireMockServer.stubFor(
-      get("/isbn/" + isbn)
+      get(urlPathEqualTo("/api/books"))
         .willReturn(aResponse()
           .withStatus(404)));
 

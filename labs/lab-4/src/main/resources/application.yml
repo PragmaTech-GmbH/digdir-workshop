@@ -7,6 +7,9 @@ spring:
     open-in-view: false
   application:
     name: lab-4
+  docker:
+    compose:
+      file: labs/lab-4/compose.yaml
 
 # Book Metadata API (OpenLibrary)
 book:
@@ -14,3 +17,5 @@ book:
     api:
       url: https://openlibrary.org
       timeout: 5
+server:
+  port: 8888

@@ -13,6 +13,7 @@ import pragmatech.digital.workshops.lab4.dto.BookMetadataResponse;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,7 +38,7 @@ class OpenLibraryApiClientTest {
     String isbn = "9780132350884";
 
     wireMockServer.stubFor(
-      get("/isbn/" + isbn)
+      get(urlPathEqualTo("/api/books"))
         .willReturn(aResponse()
           .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
           .withBodyFile(isbn + "-success.json")));
@@ -56,7 +57,7 @@ class OpenLibraryApiClientTest {
     String isbn = "9999999999";
 
     wireMockServer.stubFor(
-      get("/isbn/" + isbn)
+      get(urlPathEqualTo("/api/books"))
         .willReturn(aResponse().withStatus(404)));
 
     assertThatThrownBy(() -> cut.getBookByIsbn(isbn))
@@ -68,7 +69,7 @@ class OpenLibraryApiClientTest {
     String isbn = "9999999999";
 
     wireMockServer.stubFor(
-      get("/isbn/" + isbn)
+      get(urlPathEqualTo("/api/books"))
         .willReturn(aResponse()
           .withStatus(500)
           .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)

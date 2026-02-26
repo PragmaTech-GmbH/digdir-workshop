@@ -44,12 +44,6 @@ class Solution1DataJpaTest {
   @Autowired
   private BookRepository cut;
 
-  @BeforeEach
-  void setUp() {
-    // Ensure test isolation by cleaning up before each test
-    cut.deleteAll();
-  }
-
   @Nested
   @DisplayName("Full text search tests")
   class FullTextSearchTests {
