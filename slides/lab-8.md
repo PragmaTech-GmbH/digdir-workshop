@@ -101,7 +101,7 @@ void shouldReturnFee() {
 
 ```bash
 cd labs/lab-8
-./mvnw pitest:mutate
+./mvnw pitest:mutationCoverage
 # Opens target/pit-reports/index.html
 ```
 
