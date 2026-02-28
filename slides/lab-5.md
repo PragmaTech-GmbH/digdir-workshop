@@ -23,63 +23,57 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 <!-- header: 'Testing Spring Boot Applications Demystified Workshop @ Digdir 03.03.2026' -->
 <!-- footer: '![w:32 h:32](assets/generated/logo.webp)' -->
 
-## Day 1 Recap — Labs 1 & 2
+## Day 1 Recap
 
-**Lab 1 · JUnit 5 Fundamentals**
+- Spring Boot Starter Test aka. Testing Swiss Army Knife
+- Maven & Java Testing Conventions
+- Sliced testing to focus on isolated parts of the application
+- `@WebMvcTest` for controllers, `@DataJpaTest` for repositories, `@RestClientTest` for HTTP clients
+- Testcontainers for real infrastructure dependencies (Postgres, Redis, WireMock)
+- WireMock for stubbing external HTTP APIs at the socket level - offline, deterministic, no more H2 surprises
+- `@SpringBootTest` for full context integration tests - boots everything, closest to production, but slowest to start
 
-- Test pyramid: unit → sliced → integration → E2E — write most tests at the bottom
-- JUnit 5 lifecycle: `@BeforeEach`, `@AfterEach`, `@Nested`, `@ParameterizedTest`, `@Tag`
-- AssertJ for fluent, readable assertions; Mockito for mocking dependencies
-- Maven Surefire runs `*Test.java` (unit); Failsafe runs `*IT.java` (integration)
-
-**Lab 2 · Web Layer: `@WebMvcTest`**
-
-- Loads only controllers + filters + security config — no database, no service beans
-- MockMvc: `perform()` → `andExpect()` — verifies status, JSON paths, headers, errors
-- `@MockitoBean` stubs the service layer without starting a full context
-- Spring Security: `@WithMockUser`, `.with(jwt())`, `.with(csrf())`
 
 ---
 
-## Day 1 Recap — Labs 3 & 4
+![h:500 center](assets/workshop-agenda.png)
 
-**Lab 3 · Persistence & HTTP Client Slices**
-
-- `@DataJpaTest` — JPA layer only, `@Transactional` rollback by default
-- Real Postgres via **Testcontainers** + `@ServiceConnection` — no more H2 surprises
-- `@JsonTest` → Jackson serialization in isolation; `@RestClientTest` → stubs `RestClient`/`RestTemplate` with `MockRestServiceServer`
-
-**Lab 4 · Full Context: `@SpringBootTest`**
-
-- Boots the entire `ApplicationContext` — closest to production, slowest to start
-- Four challenges: external HTTP on startup · infrastructure deps · security · test data cleanup
-- **WireMock** stubs outbound HTTP at the socket level — offline, deterministic
-- **Testcontainers** manages a real Postgres container via the JVM test lifecycle
-- Cleanup: `@Transactional` for MockMvc (rollback); `@AfterEach deleteAll` for WebTestClient
 
 ---
 
-## Where We Left Off — End of Lab 4
+### Planned Timeline for the Second Workshop Day
 
-Lab 4 introduced `@SpringBootTest` and solved its four main challenges. Here is what you have so far:
+- 9:00 - 10:30: **Integration Testing Continued - Verify the Entire Application**
+- 10:30 - 11:00: **Coffee Break & Time for Exercises**
+- 11:00 - 12:30: **Understanding Spring TestContext Context Caching for fast Tests**
+- 12:30 - 13:30: **Lunch**
+- 13:30 - 15:00: **Strategies for Fast and Reproducible Spring Boot Test Suites**
+- 15:00 - 15:30: **Coffee Break & Time for Exercises**
+- 15:30 - 17:00: **General Spring Boot Testing Tips & Tricks and Q&A**
+
+Each 90-minute lab session will include a mix of explanations, demonstrations, and hands-on exercises.
+
+---
+
+
+## Where We Left Off - End of Lab 4
+
+Lab 4 introduced `@SpringBootTest` and solved its four main challenges. 
+
+Here is what we have so far:
 
 ```java
 @SpringBootTest
-@Import(LocalDevTestcontainerConfig.class)          // ✅ real Postgres via Testcontainers
-@ContextConfiguration(initializers =
-    WireMockContextInitializer.class)               // ✅ WireMock stubs before beans init
-@Transactional                                       // ✅ auto-rollback with MockMvc
+@Import(LocalDevTestcontainerConfig.class)                              // ✅ real Postgres via Testcontainers
+@ContextConfiguration(initializers = WireMockContextInitializer.class)  // ✅ WireMock stubs before beans init
 class BookControllerIT { ... }
 ```
 
 **What we haven't covered yet:**
 
-- The four `@SpringBootTest` web environment modes (`MOCK`, `RANDOM_PORT`, `DEFINED_PORT`, `NONE`)
-- When to use **MockMvc** vs **WebTestClient** vs **TestRestTemplate**
+- How to use **MockMvc** vs. **WebTestClient**/**TestRestTemplate**
+- Data preparation and cleanup strategies for both setup
 - How to customise the context per test (properties, beans, profiles)
-- How all of this affects **context caching** (Lab 6)
-
-**Today picks up exactly here.** ↓
 
 ---
 
