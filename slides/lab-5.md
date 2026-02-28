@@ -81,23 +81,36 @@ class BookControllerIT { ... }
 
 # Lab 5
 
-## Integration Testing Part II
+## Integration Testing Continued
 
-### MockMvc, WebTestClient & Context Customisation
+### Verify the Entire Application
 
 ---
 
+## The Bigger Picture - Understanding `@SpringBootTest`
+
+`webEnvironment = MOCK` (default) - no real HTTP server, all calls happen in the test thread. 
+
+![h:400 center](assets/springboottest-option-mock.png)
 
 
-## Challenge: Security
+---
 
-- Actual test setup depends on the used authentication mechanism:
-  - **OAuth2 Resource Server** - every request must carry a valid and signed JWT
-  - **Basic Auth** - provide test users
-  - **API Keys** - provide test keys
+`webEnvironment = RANDOM_PORT` Tomcat starts on a random port, tests make real HTTP calls over the network to the server thread.
+
+![h:400 center](assets/springboottest-random-port-thread-overview.png)
+
+
+
+---
+
+## How to Handle Security for Integration Tests?
+
+Options for `MOCK` web environment:
+
+- Follow similar strategies as with `@WebMvcTest` - mock the security context with `@WithMockUser` or `.with(jwt())`
 
 ```java
-// MockMvc: inject a mock security context — no real token exchange
 mockMvc.perform(get("/api/books/1")
     .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
   .andExpect(status().isOk());
@@ -109,70 +122,102 @@ void shouldReturnBook() { ... }
 
 ---
 
-![h:300 center](assets/lab-4-mock-variant.png)
+## How to Handle Security for Integration Tests?
+
+Options for `RANDOM_PORT` web environment:
+
+- Spring Security Test "hacks" no longer work as the test thread is different from the server thread
+- Actual test setup depends on the used authentication mechanism:
+  - **OAuth2 Resource Server** - every request must carry a valid and signed JWT
+  - **Basic Auth** - provide test users
+  - **API Keys** - provide test keys
 
 ---
 
-![w:900 center](assets/lab-4-random-port-variant.png)
+## OAuth2 Security Option #1 for Integration Tests
 
-
----
-
-## Challenge: Data Preparation & Cleanup
-
-**Preparing data:**
+Mock the `JwtDecoder` to always return a valid `Jwt` object with the required claims:
 
 ```java
-@BeforeEach
-void setUp() {
-  openLibraryApiStub.stubForSuccessfulBookResponse(VALID_ISBN); // WireMock
-  bookRepository.save(new Book(...));                           // programmatic
+@TestConfiguration
+public class TestSecurityConfig {
+  @Bean
+  public JwtDecoder jwtDecoder() {
+    return token -> {
+      // Return a manually constructed Jwt object
+      return Jwt.withTokenValue(token)
+          .header("alg", "none")
+          .claim("sub", "user123")
+          .claim("scope", "read")
+          .build();
+      };
+    }
 }
 ```
 
-**Cleanup — strategy depends on the HTTP client:**
-
-| Client | Thread | Cleanup |
-|---|---|---|
-| MockMvc | **Same** as test | `@Transactional` → automatic rollback |
-| WebTestClient | **Different** (server thread) | `@AfterEach` → `repository.deleteAll()` |
-| TestRestTemplate | **Different** (server thread) | `@AfterEach` → `repository.deleteAll()` |
-
 ---
 
-## MOCK vs RANDOM_PORT — When to Use Which
+## OAuth2 Security Option #2 for Integration Tests
 
-| | `MOCK` + MockMvc | `RANDOM_PORT` + WebTestClient |
-|---|---|---|
-| **Speed** | Faster (no server startup overhead) | Slightly slower |
-| **Isolation** | `@Transactional` → auto-rollback | Manual cleanup (`@AfterEach`) |
-| **Auth** | `@WithMockUser`, `.with(jwt())` | Real `Authorization` header |
-| **HTTP filters** | Spring filters ✅, Tomcat filters ❌ | Everything ✅ |
-| **Async/streaming** | Limited | Full support (SSE, WebSocket) |
-| **Best for** | Controller logic, validation, security rules | End-to-end flows, real HTTP behaviour, filters at all levels |
-
-**Rule of thumb:** start with `MOCK` — only switch to `RANDOM_PORT` when you specifically need real HTTP behaviour (e.g. testing Tomcat filters, streaming responses, or matching how a real client behaves).
-
----
-
-## Test HTTP Clients at a Glance
-
-| Client | Environment | Auth | Rollback |
-|---|---|---|---|
-| `MockMvc` | `MOCK` | `@WithMockUser` | ✅ `@Transactional` |
-| `WebTestClient` | `RANDOM_PORT` | Real headers | ❌ manual |
-| `TestRestTemplate` | `RANDOM_PORT` | Real headers | ❌ manual |
+Provide a replacement identity provider with Testcontainers (e.g. Keycloak)
 
 ```java
-// Auto-configured when @AutoConfigureMockMvc is present
-@Autowired MockMvc mockMvc;
+@Container
+static KeycloakContainer keycloak = new KeycloakContainer()
+    .withRealmImportFile("test-realm.json");
 
-// Auto-configured when webEnvironment = RANDOM_PORT
-@Autowired WebTestClient webTestClient;
-
-// Auto-configured when webEnvironment = RANDOM_PORT
-@Autowired TestRestTemplate restTemplate;
+@DynamicPropertySource
+static void properties(DynamicPropertyRegistry registry) {
+    registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
+        () -> keycloak.getAuthServerUrl() + "/realms/test");
+}
 ```
+
+---
+
+## OAuth2 Security Option #3 for Integration Tests
+
+
+Stub token introspection endpoint(s) (JWKS - JSON Web Token Key Set) with WireMock:
+
+```java
+wireMockServer
+  .stubFor(get(urlEqualTo("/.well-known/jwks.json"))
+      .willReturn(okJson(jwkSet.toString())));
+```
+
+- Use a custom private key to sign test JWTs 
+- Configure the JWKS endpoint to return the corresponding public key
+- This way you can test the full JWT validation flow without needing a real identity provider.
+
+---
+
+## Handling Data Preparation and Cleanup for Integration Tests
+
+Options for `MOCK` web environment:
+
+- Follow the same patterns as with `@DataJpaTest`
+- Use `@Transactional` on the test class → automatic rollback after each test
+- The test and "server-thread" are the same → no issues with transaction boundaries
+
+---
+
+## Handling Data Preparation and Cleanup for Integration Tests
+
+Options for `RANDOM_PORT` web environment:
+
+- `@Transactional` has no effect on server-side changes → manual cleanup required
+- Data visibility depends on transaction boundaries → ensure that test data is committed before the test thread tries to access it
+- Use `@AfterEach` for data clean up or a custom JUnit Jupiter extension to reset the database state after each test
+
+---
+
+## Corner Cases for `RANDOM_PORT` Integration Tests
+
+- WebSocket or SSE endpoints that require a real HTTP connection
+- Testing Tomcat filters or other server-level components
+- Verifying the full security filter chain with real authentication headers
+- Testing client-side HTTP behaviour (e.g. redirects, cookies, CORS)
 
 ---
 
@@ -242,33 +287,10 @@ class BookControllerWebTestClientTest {
 
 ---
 
-## MockMvc vs WebTestClient — The Boundary
+## Customising the Test `ApplicationContext`
 
-```
-@SpringBootTest(MOCK)
-┌──────────────────────────────────────────────────┐
-│  Test thread                                     │
-│  ────────────────────────────────────────────→   │
-│  MockMvc → DispatcherServlet → Controller        │
-│                                    ↓             │
-│                          Service → Repository    │
-│                                                  │
-│  @Transactional wraps the whole call chain ✅    │
-└──────────────────────────────────────────────────┘
-
-@SpringBootTest(RANDOM_PORT)
-┌────────────────┐    TCP    ┌─────────────────────┐
-│  Test thread   │ ───────→  │  Server thread       │
-│  WebTestClient │           │  Controller          │
-│                │           │    ↓                 │
-│                │           │  Service → DB commit │
-└────────────────┘           └─────────────────────┘
-  @Transactional has NO effect on server-side changes ❌
-```
-
----
-
-## Customising the Test Context: Properties
+- We may need to customise the context for certain tests — e.g. to override properties, activate profiles, or replace beans with test doubles
+- Sthart with properties // TODO COntiue
 
 **Inline on the annotation** — highest priority, scoped to one test class:
 
