@@ -1,5 +1,6 @@
 package pragmatech.digital.workshops.lab4.experiment;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -8,8 +9,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import pragmatech.digital.workshops.lab4.config.OpenLibraryApiStub;
 import pragmatech.digital.workshops.lab4.config.WireMockContextInitializer;
-import tools.jackson.databind.json.JsonMapper;
 
 @Testcontainers
 @SpringBootTest
@@ -24,9 +25,12 @@ class SampleIT {
     .withPassword("test");
 
   @Autowired
-  private JsonMapper jsonMapper;
+  private WireMockServer wireMockServer;
+
+  @Autowired
+  private OpenLibraryApiStub openLibraryApiStub;
 
   @Test
-  void testSample() {
+  void sampleTest() {
   }
 }
