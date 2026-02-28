@@ -300,57 +300,49 @@ Two variants matter for nearly every integration test: **`MOCK`** and **`RANDOM_
 
 ---
 
-## Variant 1: `MOCK` — No Real Server
+## Variant 1: `MOCK` - No Real Servlet Container, No Real HTTP
 
-Spring creates a `MockServletContext` — **no TCP socket, no real port**. The `DispatcherServlet` is fully configured and runs, but the request never leaves the JVM.
+- The integration tests starts the entire `ApplicationContext` but **does not start a real HTTP server**
+- Instead, it uses `MockMvc` to simulate HTTP requests in a mocked servlet environment, similar to `@WebMvcTest` but with the full context loaded.
 
+```java
+@SpringBootTest
+@AutoConfigureMockMvc
+class SampleIT {
+
+  @Autowired
+  private MockMvc mockMvc;
+  
+  @Test
+  void sampleTest() {
+    // test against your entire application, using a mocked servlet environment
+  }
+}
 ```
-Test thread
-    │
-    ▼
-MockMvc.perform(post("/api/books"))
-    │
-    ▼  [same thread, no network]
-DispatcherServlet
-    │  Spring MVC infrastructure is REAL:
-    │  • @RequestMapping routing          ✅
-    │  • Security filter chain            ✅
-    │  • Bean Validation (@Valid)         ✅
-    │  • Exception handlers (@ControllerAdvice) ✅
-    │  • Servlet filters (BlockBotFilter) ✅
-    ▼
-Controller → Service → Repository
-    │
-    ▼  [still same thread]
-@Transactional on the test wraps everything → auto-rollback ✅
-```
-
-**What is NOT real:** TCP stack · Tomcat thread pool · HTTP connection management
 
 ---
 
-## Variant 2: `RANDOM_PORT` — Real Embedded Server
+## Variant 2: `RANDOM_PORT` - Entire Context with Servlet Container
 
-Spring starts a full Tomcat instance on a random port. The test client sends a **genuine HTTP request over TCP loopback**.
+```java
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient // choose one
+@AutoConfigureTestRestTemplate // choose one
+@AutoConfigureRestTestClient // choose one
+class SampleIT {
 
+  @LocalServerPort
+  private int port;
+  
+  @Autowired
+  private WebTestClient webTestClient; // <- auto-configured for the random port
+
+  @Test
+  void sampleTest() {
+    this.webTestClient.get().uri("/api/books").exchangeSuccessfully();
+  }
+}
 ```
-Test thread                           Tomcat worker thread
-    │                                         │
-    ▼                                         ▼
-WebTestClient.post("/api/books")  →  [TCP loopback]  →  DispatcherServlet
-    │                  HTTP over real socket           Controller
-    │                                                    │
-    │                                               Service → Repository
-    │                                                    │
-    │                                               DB commit ← happens here!
-    ◄──────────── response ──────────────────────────────┘
-
-@Transactional on the test class = different thread → NO effect on server side ❌
-```
-
-**What IS real:** Tomcat thread pool · HTTP header parsing · connection management · Spring Security processing real `Authorization` headers · Servlet filters
-
-**Implication:** every write to the DB is committed — **manual cleanup required** (`@AfterEach deleteAll()`)
 
 ---
 

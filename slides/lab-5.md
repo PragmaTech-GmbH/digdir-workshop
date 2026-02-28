@@ -115,6 +115,15 @@ void shouldReturnBook() { ... }
 
 ---
 
+![h:300 center](assets/lab-4-mock-variant.png)
+
+---
+
+![w:900 center](assets/lab-4-random-port-variant.png)
+
+
+---
+
 ## Challenge: Data Preparation & Cleanup
 
 **Preparing data:**
