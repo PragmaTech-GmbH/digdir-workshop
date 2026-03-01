@@ -1,5 +1,6 @@
 package pragmatech.digital.workshops.lab8.experiment;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -40,9 +41,9 @@ class LateReturnFeeCalculatorTest {
       Book book = new Book("978-0-13-468599-1", "Clean Code", "Martin", LocalDate.of(2008, 8, 1));
       book.setStatus(BookStatus.AVAILABLE);
 
-      double fee = cut.calculateFee(book, LocalDate.of(2025, 5, 1));
+      BigDecimal fee = cut.calculateFee(book, LocalDate.of(2025, 5, 1));
 
-      assertThat(fee).isEqualTo(0.0);
+      assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
@@ -50,9 +51,9 @@ class LateReturnFeeCalculatorTest {
       Book book = new Book("978-0-13-468599-1", "Clean Code", "Martin", LocalDate.of(2008, 8, 1));
       book.setStatus(BookStatus.RESERVED);
 
-      double fee = cut.calculateFee(book, LocalDate.of(2025, 5, 1));
+      BigDecimal fee = cut.calculateFee(book, LocalDate.of(2025, 5, 1));
 
-      assertThat(fee).isEqualTo(0.0);
+      assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
     }
   }
 
@@ -69,58 +70,58 @@ class LateReturnFeeCalculatorTest {
 
     @Test
     void shouldReturnZeroFeeWhenReturnedOnTime() {
-      double fee = cut.calculateFee(borrowedBook, LocalDate.of(2025, 6, 1));
+      BigDecimal fee = cut.calculateFee(borrowedBook, LocalDate.of(2025, 6, 1));
 
-      assertThat(fee).isEqualTo(0.0);
+      assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
     void shouldReturnZeroFeeWhenBorrowedInFuture() {
-      double fee = cut.calculateFee(borrowedBook, LocalDate.of(2025, 6, 15));
+      BigDecimal fee = cut.calculateFee(borrowedBook, LocalDate.of(2025, 6, 15));
 
-      assertThat(fee).isEqualTo(0.0);
+      assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @ParameterizedTest(name = "{0} days overdue -> fee ${1}")
     @CsvSource({
-      "1,  1.0",
-      "3,  3.0",
-      "7,  7.0"
+      "1,  1.00",
+      "3,  3.00",
+      "7,  7.00"
     })
-    void shouldChargeOneDollarPerDayWhenOneToSevenDaysOverdue(long daysOverdue, double expectedFee) {
+    void shouldChargeOneDollarPerDayWhenOneToSevenDaysOverdue(long daysOverdue, BigDecimal expectedFee) {
       LocalDate borrowedDate = LocalDate.of(2025, 6, 1).minusDays(daysOverdue);
 
-      double fee = cut.calculateFee(borrowedBook, borrowedDate);
+      BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
 
-      assertThat(fee).isEqualTo(expectedFee);
+      assertThat(fee).isEqualByComparingTo(expectedFee);
     }
 
     @ParameterizedTest(name = "{0} days overdue -> fee ${1}")
     @CsvSource({
-      "8,  12.0",
-      "10, 15.0",
-      "14, 21.0"
+      "8,  12.00",
+      "10, 15.00",
+      "14, 21.00"
     })
-    void shouldChargeDollarFiftyPerDayWhenEightToFourteenDaysOverdue(long daysOverdue, double expectedFee) {
+    void shouldChargeDollarFiftyPerDayWhenEightToFourteenDaysOverdue(long daysOverdue, BigDecimal expectedFee) {
       LocalDate borrowedDate = LocalDate.of(2025, 6, 1).minusDays(daysOverdue);
 
-      double fee = cut.calculateFee(borrowedBook, borrowedDate);
+      BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
 
-      assertThat(fee).isEqualTo(expectedFee);
+      assertThat(fee).isEqualByComparingTo(expectedFee);
     }
 
     @ParameterizedTest(name = "{0} days overdue -> fee ${1}")
     @CsvSource({
-      "15, 30.0",
-      "20, 40.0",
-      "30, 60.0"
+      "15, 30.00",
+      "20, 40.00",
+      "30, 60.00"
     })
-    void shouldChargeTwoDollarsPerDayWhenFifteenOrMoreDaysOverdue(long daysOverdue, double expectedFee) {
+    void shouldChargeTwoDollarsPerDayWhenFifteenOrMoreDaysOverdue(long daysOverdue, BigDecimal expectedFee) {
       LocalDate borrowedDate = LocalDate.of(2025, 6, 1).minusDays(daysOverdue);
 
-      double fee = cut.calculateFee(borrowedBook, borrowedDate);
+      BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
 
-      assertThat(fee).isEqualTo(expectedFee);
+      assertThat(fee).isEqualByComparingTo(expectedFee);
     }
 
     @Nested
@@ -130,36 +131,36 @@ class LateReturnFeeCalculatorTest {
       void shouldApplyTierOneBoundaryAtSevenDays() {
         LocalDate borrowedDate = LocalDate.of(2025, 5, 25);
 
-        double fee = cut.calculateFee(borrowedBook, borrowedDate);
+        BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
 
-        assertThat(fee).isEqualTo(7.0);
+        assertThat(fee).isEqualByComparingTo(new BigDecimal("7.00"));
       }
 
       @Test
       void shouldApplyTierTwoBoundaryAtEightDays() {
         LocalDate borrowedDate = LocalDate.of(2025, 5, 24);
 
-        double fee = cut.calculateFee(borrowedBook, borrowedDate);
+        BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
 
-        assertThat(fee).isEqualTo(12.0);
+        assertThat(fee).isEqualByComparingTo(new BigDecimal("12.00"));
       }
 
       @Test
       void shouldApplyTierTwoBoundaryAtFourteenDays() {
         LocalDate borrowedDate = LocalDate.of(2025, 5, 18);
 
-        double fee = cut.calculateFee(borrowedBook, borrowedDate);
+        BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
 
-        assertThat(fee).isEqualTo(21.0);
+        assertThat(fee).isEqualByComparingTo(new BigDecimal("21.00"));
       }
 
       @Test
       void shouldApplyTierThreeBoundaryAtFifteenDays() {
         LocalDate borrowedDate = LocalDate.of(2025, 5, 17);
 
-        double fee = cut.calculateFee(borrowedBook, borrowedDate);
+        BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
 
-        assertThat(fee).isEqualTo(30.0);
+        assertThat(fee).isEqualByComparingTo(new BigDecimal("30.00"));
       }
     }
   }

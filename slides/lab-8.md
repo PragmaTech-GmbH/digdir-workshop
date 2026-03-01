@@ -41,7 +41,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ---
 
-# `OutputCaptureExtension`
+## `OutputCaptureExtension`
 
 Capture `System.out`, `System.err`, and log output **without** starting a Spring context.
 
@@ -66,8 +66,19 @@ class OutputCaptureTest {
   }
 }
 ```
+  
+---
 
-**Use cases:** verify startup banners, log messages from `@EventListener`, warn-on-missing-config.
+## Mutation Testing with PIT
+
+- Having high code coverage might give you a **false sense of security**
+- Mutation Testing with [PIT](https://pitest.org/quickstart/)
+- Beyond Line Coverage: Traditional tools like JaCoCo show which code runs during tests, but PIT verifies if our tests actually detect when code behaves incorrectly by introducing "**mutations**" to our source code.
+- Quality Guarantee: PIT automatically **modifies our code** (changing conditionals, return values, etc.) to ensure our tests fail when they should, **revealing blind spots** in seemingly comprehensive test suites.
+
+---
+
+![center h:500 w:1300](assets/mutation-testing-explained.png)
 
 ---
 
@@ -78,7 +89,7 @@ class OutputCaptureTest {
 ```java
 @Test
 void shouldReturnFee() {
-  double fee = cut.calculateFee(borrowedBook, borrowedDate);
+  BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
   assertThat(fee).isNotNull(); // ← This assertion is meaningless!
 }
 ```
@@ -100,15 +111,15 @@ cd labs/lab-8
 
 ```java
 // Production code with multiple fee tiers
-public double calculateFee(Book book, LocalDate borrowedDate) {
-  if (book.getStatus() != BookStatus.BORROWED) return 0.0;
+public BigDecimal calculateFee(Book book, LocalDate borrowedDate) {
+  if (book.getStatus() != BookStatus.BORROWED) return BigDecimal.ZERO;
 
   long daysOverdue = ChronoUnit.DAYS.between(borrowedDate, LocalDate.now(clock));
 
-  if (daysOverdue <= 0)       return 0.0;
-  else if (daysOverdue <= 7)  return daysOverdue * 1.0;
-  else if (daysOverdue <= 14) return daysOverdue * 1.5;
-  else                        return daysOverdue * 2.0;
+  if (daysOverdue <= 0)       return BigDecimal.ZERO;
+  else if (daysOverdue <= 7)  return RATE_TIER_ONE.multiply(BigDecimal.valueOf(daysOverdue));
+  else if (daysOverdue <= 14) return RATE_TIER_TWO.multiply(BigDecimal.valueOf(daysOverdue));
+  else                        return RATE_TIER_THREE.multiply(BigDecimal.valueOf(daysOverdue));
 }
 ```
 
@@ -118,7 +129,7 @@ public double calculateFee(Book book, LocalDate borrowedDate) {
 
 ---
 
-# Following Container Logs
+## Following Container Logs
 
 Pipe Testcontainers output to your SLF4J logger for debugging:
 
@@ -140,6 +151,8 @@ class ContainerLogsTest {
 }
 ```
 
+---
+
 **Add to `LocalDevTestcontainerConfig`** to always stream container logs during test runs:
 
 ```java
@@ -149,9 +162,9 @@ return new PostgreSQLContainer<>("postgres:16-alpine")
 
 ---
 
-# `@RecordApplicationEvents`
+## `@RecordApplicationEvents`
 
-Verify that your application code publishes the **right Spring events** — without mocking.
+Verify that your application code publishes the **right Spring events** - without mocking.
 
 ```java
 @SpringBootTest
@@ -179,7 +192,7 @@ class RecordApplicationEventsTest {
 
 ---
 
-# `ApplicationContextRunner`
+## `ApplicationContextRunner`
 
 Test **auto-configuration and conditional beans** without starting a full Spring Boot context.
 
@@ -211,7 +224,7 @@ class ApplicationContextRunnerTest {
 
 ---
 
-# ArchUnit — Architecture Testing
+## ArchUnit - Architecture Testing
 
 **What is it?** A Java library that lets you write **executable architecture rules** as unit tests.
 
@@ -223,7 +236,11 @@ class ApplicationContextRunnerTest {
 | Violations discovered in code review | Violations fail the build immediately |
 | "Soft" conventions | Hard rules with clear error messages |
 
-**No Spring context required** — ArchUnit analyzes the compiled bytecode.
+**No Spring context required** - ArchUnit analyzes the compiled bytecode.
+
+---
+
+## Adding ArchUnit to Our Project
 
 ```xml
 <dependency>
@@ -265,13 +282,49 @@ class ArchUnitTest {
 
 ---
 
-## ArchUnit — Layered Architecture Visualized
+## Object Mother Pattern - Centralise Test Data Creation
 
-![w:900 center](assets/lab-8-arch-layers.png)
+**Problem:** every test constructs its own objects → brittle, verbose, inconsistent.
+
+```java
+// ❌ Repeated in every test — breaks when the Book constructor changes
+Book book = new Book("978-0-13-468599-1", "Clean Code", "Martin", LocalDate.of(2008, 8, 1));
+book.setStatus(BookStatus.BORROWED);
+```
 
 ---
 
-# Useful Libraries: Selenide
+**Solution:** a dedicated factory class with named, pre-configured instances:
+
+```java
+public class BookMother {
+
+  public static Book availableBook() {
+    return new Book("978-0-13-468599-1", "Clean Code", "Robert C. Martin", LocalDate.of(2008, 8, 1));
+  }
+
+  public static Book borrowedBook() {
+    Book book = availableBook();
+    book.setStatus(BookStatus.BORROWED);
+    return book;
+  }
+
+  public static Book effectiveJava() {
+    return new Book("978-0-13-468599-0", "Effective Java", "Joshua Bloch", LocalDate.of(2018, 1, 6));
+  }
+}
+```
+
+```java
+// ✅ Tests read like a specification
+Book book = BookMother.borrowedBook();
+```
+
+**Constructor changes?** Fix `BookMother` once - all tests stay green.
+
+---
+
+## Useful Libraries: Selenide
 
 **Selenium wrapper** with a fluent API that reduces boilerplate and auto-retries assertions.
 
@@ -286,6 +339,8 @@ $("#submit").click();
 $$(".book-card").shouldHave(size(5));
 $(".book-title").shouldHave(text("Effective Java"));
 ```
+
+---
 
 **Key features:**
 - Auto-waits for elements (configurable timeout, no explicit waits)
@@ -302,7 +357,7 @@ $(".book-title").shouldHave(text("Effective Java"));
 
 ---
 
-# Useful Libraries: GreenMail / Mailpit
+## Useful Libraries: GreenMail / Mailpit
 
 **Test email sending** without a real SMTP server.
 
@@ -328,13 +383,11 @@ class BookNotificationServiceTest {
 }
 ```
 
-**Mailpit** — alternative with a web UI for local development (run as Docker container).
-
 ---
 
-# Useful Libraries: Gatling / JMH
+## Useful Libraries: Gatling / JMH
 
-## Gatling — Load & Performance Testing
+### Gatling — Load & Performance Testing
 
 ```scala
 class BookApiSimulation extends Simulation {
@@ -351,7 +404,9 @@ class BookApiSimulation extends Simulation {
 mvn gatling:test    # Generates HTML report in target/gatling/
 ```
 
-## JMH — Micro-benchmarking
+---
+
+### JMH — Micro-benchmarking
 
 ```java
 @Benchmark
@@ -365,11 +420,11 @@ public void calculateFee(Blackhole bh) {
 
 ---
 
-# Useful Libraries: Pact / Spring Cloud Contract
+## Useful Libraries: Pact / Spring Cloud Contract
 
-**Consumer-Driven Contract Testing** — verify both sides of an API independently.
+**Consumer-Driven Contract Testing** - verify both sides of an API independently.
 
-```
+```text
 Consumer (Frontend/Client)          Provider (Backend)
          │                                  │
          ▼                                  ▼
@@ -387,12 +442,9 @@ Contract.make {
   response { status 200; body(id: 1, title: "Effective Java") }
 }
 ```
-
-**When to use:** Microservice boundaries, separate deployment cycles, multiple consumers.
-
 ---
 
-# TDD with AI: CLAUDE.md Conventions
+## TDD with AI: CLAUDE.md Conventions
 
 Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generation:
 
@@ -405,7 +457,11 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 - Group related tests with @Nested
 - Use parameterized tests for boundary values
 - Use Clock injection, never LocalDate.now() directly
+
+... more conventions ...
 ```
+
+---
 
 **AI-assisted TDD workflow:**
 
@@ -417,7 +473,7 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 
 ---
 
-# Diffblue Cover — AI-Generated Unit Tests
+## Diffblue Cover - AI-Generated Unit Tests
 
 **What it is:** A commercial tool that automatically generates JUnit unit tests for existing Java code using AI.
 
@@ -538,72 +594,24 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 
 ---
 
-# Testing Spring Boot Applications Masterclass
-
-Want to go deeper after this workshop?
-
-**Online course:** _Testing Spring Boot Applications Masterclass_
-[rieckpil.de/testing-spring-boot-applications-masterclass](https://rieckpil.de/testing-spring-boot-applications-masterclass)
-
-**What's covered:**
-- 12+ hours of video content
-- 200+ exercises and code examples
-- `@WebMvcTest`, `@DataJpaTest`, WireMock, Testcontainers, Security testing
-- Continuous updates with every Spring Boot release
-
-**Philip's blog & resources:**
-- [rieckpil.de](https://rieckpil.de) — Spring Boot testing articles
-- [@rieckpil](https://x.com/rieckpil) — Follow for tips
-
----
-
-![bg](./assets/end.jpg)
 
 ## Q & A
 
-### Thank you for participating!
 
-_Workshop materials: [github.com/pragmatech-digital/digdir-workshop](https://github.com/pragmatech-digital/digdir-workshop)_
 
 ---
 
-# Time For Some Exercises
+## Joyful Testing!
 
-## Lab 8
+Workshop materials are on [GitHub](https://github.com/PragmaTech-GmbH/digdir-workshop/)
 
----
+The rendered slides are in the `slides/` folder.
 
-## Exercise 1: Write ArchUnit Architecture Rules
+![bg right:33%](assets/end.jpg)
 
-**Goal:** Enforce the layered architecture with custom ArchUnit rules.
+Reach out any time via:
+- [LinkedIn](https://www.linkedin.com/in/rieckpil) (Philip Riecks)
+- [X](https://x.com/rieckpil) (@rieckpil)
+- [Mail](mailto:philip@pragmatech.digital) (philip@pragmatech.digital)
 
-**Steps:**
-1. Open `exercises/Exercise1ArchUnitTest.java`
-2. Replace the `null` placeholders with real ArchUnit rules:
-   - Rule 1: No class in `controller` package should access `repository` package directly
-   - Rule 2: Add a `layeredArchitecture()` rule covering Controller → Service → Repository
-3. Run `./mvnw test -Dtest=Exercise1ArchUnitTest` — rules should pass on the clean codebase
-4. (Optional) Temporarily add a direct `BookRepository` import to `BookController` and watch the rule fail
 
-**Solution:** `solutions/Solution1ArchUnitTest.java`
-
----
-
-## Exercise 2: Test Application Events with @RecordApplicationEvents
-
-**Goal:** Verify that `BookCreatedEvent` is published when a book is created.
-
-**Steps:**
-1. Open `exercises/Exercise2RecordApplicationEventsTest.java`
-2. In the `shouldPublishBookCreatedEventWhenCreatingBook` test:
-   - Create a `BookCreationRequest` with ISBN `"978-0201633610"` (pre-stubbed in WireMock)
-   - Call `bookService.createBook(request)`
-   - Assert that exactly one `BookCreatedEvent` was published
-   - Assert the event's `isbn`, `title`, and `bookId` fields
-3. Run `./mvnw test -Dtest=Exercise2RecordApplicationEventsTest`
-
-**Key APIs:**
-- `events.stream(BookCreatedEvent.class).count()` — count events
-- `events.stream(BookCreatedEvent.class).findFirst().orElseThrow()` — get the event
-
-**Solution:** `solutions/Solution2RecordApplicationEventsTest.java`

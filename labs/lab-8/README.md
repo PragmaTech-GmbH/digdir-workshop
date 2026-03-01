@@ -1,5 +1,13 @@
 # Lab 8: General FAQ and Customer Specific Issues
 
+## AI
+
+```
+For my BookController, please implement a new endpoint to export all avialable books as CSV. Include all available fields of the Book and sort it by default by the creation date.
+
+Make sure this can only be done by authenticated users with the "ADMIN" role.
+```
+
 This lab covers practical topics that frequently come up in real-world Spring Boot testing projects: GitHub Actions pipeline best practices, Maven tips for faster builds, and test organization using JUnit 5 `@Tag` with Maven profiles.
 
 ## Learning Objectives
