@@ -80,6 +80,7 @@ class Exercise2WebTestClientIntegrationTest {
   @Test
   void shouldReturnAllBooksWhenUsingWebTestClient() {
     // TODO:
+    // 0. Pre-populate the database with some books
     // 1. Perform a GET to /api/books (publicly accessible, no auth needed)
     //    Use webTestClient.get().uri("/api/books")
     //

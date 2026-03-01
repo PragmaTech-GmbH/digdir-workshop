@@ -1,5 +1,7 @@
 package pragmatech.digital.workshops.lab5.solutions;
 
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import pragmatech.digital.workshops.lab5.LocalDevTestcontainerConfig;
 import pragmatech.digital.workshops.lab5.config.OpenLibraryApiStub;
 import pragmatech.digital.workshops.lab5.config.WireMockContextInitializer;
+import pragmatech.digital.workshops.lab5.entity.Book;
+import pragmatech.digital.workshops.lab5.repository.BookRepository;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,17 +52,13 @@ class Solution1MockMvcIntegrationTest {
   private MockMvc mockMvc;
 
   @Autowired
+  private BookRepository bookRepository;
+
+  @Autowired
   private OpenLibraryApiStub openLibraryApiStub;
 
   private static final String VALID_ISBN = "978-0134757599";
 
-  @BeforeEach
-  void setUp() {
-    // Register a WireMock stub for the dashed ISBN format used in BookCreationRequest.
-    // The BookService passes the ISBN as-is to the OpenLibrary API client,
-    // so the stub must match the dashed format.
-    openLibraryApiStub.stubForSuccessfulBookResponse(VALID_ISBN);
-  }
 
   @Test
   @WithMockUser(roles = "USER")
@@ -72,6 +72,8 @@ class Solution1MockMvcIntegrationTest {
         "publishedDate": "2018-01-06"
       }
       """.formatted(VALID_ISBN);
+
+    openLibraryApiStub.stubForSuccessfulBookResponse(VALID_ISBN);
 
     // Act - Create a book
     MvcResult createResult = mockMvc.perform(post("/api/books")
@@ -100,10 +102,14 @@ class Solution1MockMvcIntegrationTest {
   @Test
   void shouldReturnAllBooksWhenUsingMockMvc() throws Exception {
     // GET /api/books is publicly accessible (permitAll)
+    this.bookRepository.save(new Book("123-1234567890", "Book One", "Author A", LocalDate.now()));
+    this.bookRepository.save(new Book("456-1234567890", "Book Two", "Author B", LocalDate.now()));
+
     mockMvc.perform(get("/api/books")
         .accept(MediaType.APPLICATION_JSON))
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$").isArray());
+      .andExpect(jsonPath("$").isArray())
+      .andExpect(jsonPath("$.size()").value(2));
   }
 
   @Test

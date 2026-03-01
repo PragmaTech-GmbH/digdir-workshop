@@ -30,7 +30,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 - Sliced testing to focus on isolated parts of the application
 - `@WebMvcTest` for controllers, `@DataJpaTest` for repositories, `@RestClientTest` for HTTP clients
 - Testcontainers for real infrastructure dependencies (Postgres, Redis, WireMock)
-- WireMock for stubbing external HTTP APIs at the socket level - offline, deterministic, no more H2 surprises
+- WireMock for stubbing external HTTP APIs - offline and deterministic
 - `@SpringBootTest` for full context integration tests - boots everything, closest to production, but slowest to start
 
 
@@ -212,87 +212,51 @@ Options for `RANDOM_PORT` web environment:
 
 ---
 
+## Using `@Transactional` with `RANDOM_PORT`
+
+The **test thread** and **server thread** are separate, but both point at the **same database**.
+
+| | Without `@Transactional`           | With `@Transactional`                    |
+|---|------------------------------------|------------------------------------------|
+| **`@BeforeEach` save** | Auto-committed - data is in the DB | Uncommitted - hidden in test transaction |
+| **Server visibility** | ✅ Visible                          | ❌ Invisible (transaction isolation)      |
+| **Cleanup** | Manual `@AfterEach deleteAll()`    | Automatic rollback                       |
+| **Risk** | Data can leak between tests        | Test data invisible to server thread     |
+
+
+----
+
+```text
+Without @Transactional              With @Transactional
+─────────────────────               ─────────────────────
+Test thread:                        Test thread:
+  save() → auto-commit ✅             save() → uncommitted 🔒
+  webTestClient.get() →               webTestClient.get() →
+Server thread:                      Server thread:
+  SELECT * → sees data ✅               SELECT * → sees nothing ❌
+  @AfterEach deleteAll() required     (different transaction, READ COMMITTED)
+```
+
+**Rule:** With `RANDOM_PORT`, be aware when using `@Transactional` for setting up data. If you do, the server thread won't see it. Either commit the data or use manual cleanup.
+
+---
+
 ## Corner Cases for `RANDOM_PORT` Integration Tests
 
 - WebSocket or SSE endpoints that require a real HTTP connection
-- Testing Tomcat filters or other server-level components
+- Testing servlet container proprietary code or other server-level components
 - Verifying the full security filter chain with real authentication headers
 - Testing client-side HTTP behaviour (e.g. redirects, cookies, CORS)
 
 ---
 
-## MockMvc — Same Thread, Automatic Rollback
+## Customizing the Test `ApplicationContext`
 
-```java
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
-class BookControllerMockMvcTest {
+- We may need to customise the context for certain tests - e.g. to override properties, activate profiles, or replace beans with test doubles
 
-  @Autowired private MockMvc mockMvc;
+### Starting with Properties
 
-  @Test
-  @WithMockUser(roles = "USER")
-  void shouldCreateAndRetrieveBook() throws Exception {
-    MvcResult result = mockMvc.perform(post("/api/books")
-        .contentType(APPLICATION_JSON)
-        .content(requestBody))
-      .andExpect(status().isCreated())
-      .andExpect(header().exists("Location"))
-      .andReturn();
-
-    String location = result.getResponse().getHeader("Location");
-
-    mockMvc.perform(get(location))
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.status").value("AVAILABLE"));
-  }
-}
-```
-
----
-
-## WebTestClient — Different Thread, Real HTTP
-
-```java
-@SpringBootTest(webEnvironment = RANDOM_PORT)
-@Import(LocalDevTestcontainerConfig.class)
-@ContextConfiguration(initializers = WireMockContextInitializer.class)
-class BookControllerWebTestClientTest {
-
-  @Autowired private WebTestClient webTestClient;
-  @Autowired private BookRepository bookRepository;
-
-  @AfterEach
-  void cleanUp() { bookRepository.deleteAll(); }
-
-  @Test
-  void shouldCreateAndRetrieveBook() {
-    URI location = webTestClient.post().uri("/api/books")
-      .contentType(APPLICATION_JSON)
-      .headers(h -> h.setBasicAuth("user", "user"))
-      .bodyValue(requestBody)
-      .exchange()
-      .expectStatus().isCreated()
-      .returnResult(Void.class).getResponseHeaders().getLocation();
-
-    webTestClient.get().uri(location.getPath())
-      .headers(h -> h.setBasicAuth("user", "user"))
-      .exchange()
-      .expectStatus().isOk()
-      .expectBody().jsonPath("$.status").isEqualTo("AVAILABLE");
-  }
-}
-```
-
----
-
-## Customising the Test `ApplicationContext`
-
-- We may need to customise the context for certain tests — e.g. to override properties, activate profiles, or replace beans with test doubles
-- Sthart with properties // TODO COntiue
-
-**Inline on the annotation** — highest priority, scoped to one test class:
+**Inline on the annotation** - highest priority, scoped to one test class:
 
 ```java
 @SpringBootTest(properties = {
@@ -301,14 +265,16 @@ class BookControllerWebTestClientTest {
 })
 ```
 
-**`@TestPropertySource`** — reusable, can point to a file:
+---
+
+**`@TestPropertySource`** - reusable, can point to a file:
 
 ```java
 @TestPropertySource(locations = "classpath:test-overrides.properties")
 @TestPropertySource(properties = "book.metadata.api.url=http://localhost:9090")
 ```
 
-**`src/test/resources/application.yml`** — applies to all tests:
+**`src/test/resources/application.yml`** - applies to all tests and overrides the main `application.yml`:
 
 ```yaml
 spring:
@@ -320,10 +286,9 @@ spring:
 
 ---
 
-## Customising the Test Context: Profiles
+## Customizing the Test Context: Profiles
 
 ```java
-@SpringBootTest
 @ActiveProfiles("integration")
 class BookControllerIT { ... }
 ```
@@ -331,24 +296,20 @@ class BookControllerIT { ... }
 `src/test/resources/application-integration.yml`:
 
 ```yaml
-logging:
-  level:
-    org.hibernate.SQL: DEBUG
-    com.zaxxer.hikari: DEBUG
-book:
-  metadata:
-    api:
-      url: http://localhost:${wiremock.server.port}
+tax-report:
+  jobs:
+    fetch:
+      enabled: false
+    export:
+      enabled: false
 ```
 
-- Activate entire configuration sections per environment
-- Useful for switching between H2 and real DB, enabling extra logging, or toggling feature flags
-
+- Steer bean activation with `@Profile` and `@ConditionalOnProperty` to disable non-essential features in integration tests - e.g. scheduled jobs, batch jobs, async processing, external API calls
 ---
 
 ## Customising the Test Context: Bean Replacement
 
-**`@MockitoBean`** — replace a bean with a Mockito mock:
+**`@MockitoBean/@MockBean`** - replace a bean with a Mockito mock:
 
 ```java
 @SpringBootTest
@@ -366,13 +327,11 @@ class BookServiceIntegrationTest {
 }
 ```
 
-⚠️ `@MockitoBean` forces a **new application context** — avoid in large test suites
-
 ---
 
 ## Customising the Test Context: Custom Beans
 
-**`@TestConfiguration` + `@Import`** — contribute or replace beans without touching production config:
+**`@TestConfiguration` + `@Import`** - contribute or replace beans without touching production config:
 
 ```java
 @TestConfiguration
@@ -387,27 +346,23 @@ class FakeMailConfig {
 
 ```java
 @SpringBootTest
-@Import(FakeMailConfig.class)   // ← wires the test bean into this context only
+@Import(FakeMailConfig.class)   
 class BookNotificationServiceTest {
-
-  @Autowired BookNotificationService bookNotificationService;
 }
 ```
-
-> Use `@TestConfiguration(proxyBeanMethods = false)` for faster startup — no CGLIB proxy needed when beans don't call each other.
 
 ---
 
 ## Customising the Test Context: Custom Beans (2)
 
-**`@Primary`** — declare a test bean as the preferred candidate when multiple exist:
+**`@Primary`** - declare a test bean as the preferred candidate when multiple exist:
 
 ```java
 @TestConfiguration
 class FixedClockConfig {
 
   @Bean
-  @Primary                              // ← wins over the production Clock bean
+  @Primary  // ← wins over the production Clock bean
   Clock fixedClock() {
     return Clock.fixed(
       Instant.parse("2025-06-01T00:00:00Z"), ZoneOffset.UTC);
@@ -415,7 +370,12 @@ class FixedClockConfig {
 }
 ```
 
-**Reusable config via a shared base class:**
+---
+
+
+## Sharing Context Customizations Across Multiple Test Classes
+
+- Option 1: Create a common base class with the shared annotations and extend it in the test classes
 
 ```java
 @SpringBootTest
@@ -427,31 +387,78 @@ class LateReturnFeeIT extends SharedIntegrationTestBase {
 }
 ```
 
-> `@Primary` is cleaner than `@MockitoBean` when you want a **real fake** (a hand-written stub) rather than a Mockito mock — and it doesn't break context caching.
+---
+## Sharing Context Customizations Across Multiple Test Classes
+
+- Option 2: Composition over inheritance - create a custom annotation that aggregates the common annotations
+
+```java
+@EnablePostgres
+@UseFixedClock
+@StubHttpClients
+```
+
+- Option 3: Create a custom `ContextCustomizer` and register it with `@ContextConfiguration` for full control over the context initialization process (advanced use case)
 
 ---
 
-## General Questions
+## Advanced Building Block `ContextCustomizer`
 
-> *"If I have a `@SpringBootTest` that covers everything, why bother with `@WebMvcTest`?"*
+- Programmatically customize the `ApplicationContext` before it is refreshed - e.g. start infrastructure containers, set up WireMock stubs, register test beans, modify environment properties
+- Share the customization logic across multiple test classes without inheritance or annotation composition
 
-- **Speed**: Sliced contexts start in < 1 s vs 10–30 s for a full context
-- **Corner cases**: reproducing a specific validation error or HTTP status via `@SpringBootTest` often requires a `@MockitoBean` → **that creates a new context**
-- **Focus**: sliced tests fail closer to the root cause — easier to debug
-- **Feedback loop**: run 50 `@WebMvcTest` tests in the time one `@SpringBootTest` starts
+```java
+public class SharedInfrastructureContextCustomizer implements ContextCustomizer {
 
-**Rule of thumb:**
-- Extensive sliced testing for the **web** and **persistence** layers
-- `@SpringBootTest` for key **integration paths** — the happy path and critical flows
-- Never `@MockitoBean` your way through a `@SpringBootTest` — use sliced testing instead
+  // Static so they persist across multiple test class executions (reusing the context)
+  private static final PostgreSQLContainer postgres =
+    new PostgreSQLContainer("postgres:16-alpine");
+  private static final WireMockServer wireMockServer =
+    new WireMockServer(options().dynamicPort());
+
+  @Override
+  public void customizeContext(ConfigurableApplicationContext context, MergedContextConfiguration mergedConfig) {
+
+    // customize the context - start containers, set properties, register beans
+    
+  }
+}
+```
+---
+
+## Missing Pieces for the `ContextCustomizer` Approach
+
+Define a factory:
+
+```java
+public class SharedInfrastructureCustomizerFactory implements ContextCustomizerFactory {
+
+  @Override
+  public ContextCustomizer createContextCustomizer(Class<?> testClass, List<ContextConfigurationAttributes> configAttributes) {
+    // Only activate if the @SharedInfrastructureTest annotation is present
+    if (AnnotatedElementUtils.hasAnnotation(testClass, SharedInfrastructureTest.class)) {
+      return new SharedInfrastructureContextCustomizer();
+    }
+
+    // Otherwise, return null (do nothing)
+    return null;
+  }
+}
+```
+
+... and registration in `src/test/resources/META-INF/spring.factories`:
+
+```text
+org.springframework.test.context.ContextCustomizerFactory=\
+pragmatech.digital.workshops.lab5.experiment.customizer.SharedInfrastructureCustomizerFactory
+``` 
 
 ---
 
 # Time For Some Exercises
 ## Lab 5
 
-- Work with the same repository as in Lab 1–4
 - Navigate to the `labs/lab-5` folder and complete the tasks in the `README`
 - **Exercise 1**: Implement an integration test with `MockMvc` (MOCK environment, `@Transactional`)
 - **Exercise 2**: Implement the same scenario with `WebTestClient` (RANDOM_PORT, manual cleanup)
-- Time boxed: until the end of the session
+- Time boxed: until the end of the coffee break

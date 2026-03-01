@@ -25,8 +25,9 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## Discuss Exercises from Lab 5
 
-- MockMvcIntegrationTest
-- Solution2WebTestClientIntegrationTest
+- Discuss exercises
+  - `Solution1MockMvcIntegrationTest`
+  - `Solution2WebTestClientIntegrationTest`
 
 ---
 
@@ -34,9 +35,9 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 # Lab 6
 
-## Context Caching & Fast Builds
+## Understanding Spring TestContext Context Caching
 
-### Making Your Integration Test Suite Scale
+### Making Your Integration Test Suite Fast
 
 ---
 
@@ -55,58 +56,28 @@ Then someone checks the CI build time…
 
 ## Build Time: The Hidden Tax
 
-![w:900](assets/generated/build-time-growth.png)
+![w:900 h:500 center](assets/build-time-growth.png)
 
 ---
 
 ## The Root Cause
 
-Every `@SpringBootTest` context startup costs **10–30 seconds**:
+Every `@SpringBootTest` context startup costs **multiple seconds**:
 
 - Testcontainers (PostgreSQL) starts → JDBC connection pool opens
 - WireMock starts and stubs are registered
-- Flyway runs migrations
+- Flyway runs migration scripts
 - Spring wires all beans
 
 If 10 test classes each create a **unique** context → **10 cold starts**
 
-```
-test class 1:  context A starts  (15s)
-test class 2:  context A reused  (0s)   ← cached ✅
-test class 3:  context B starts  (15s)  ← different annotation ❌
-test class 4:  context C starts  (15s)  ← another difference ❌
-```
-
 ---
 
-## The Goal: Fast Feedback
+## The Solution: Spring Test Context Caching
 
-```
-Before optimisation:   10 contexts × 15s  = 150s startup overhead
-After optimisation:     1 context  × 15s  =  15s startup overhead
-```
-
-**Rule of thumb:**
-- One shared context for the **happy-path integration tests**
-- Sliced tests (`@WebMvcTest`, `@DataJpaTest`) for layer-specific edge cases
-- Only spin up a second context when there is a **genuine architectural reason**
-
----
-
-## Spring Test Context Caching
-
-- Built into Spring Test — available automatically via `spring-boot-starter-test`
+- Built into Spring Test - available automatically via `spring-boot-starter-test`
 - Caches a started `ApplicationContext` by a **cache key**
 - Cache is per-JVM process (not shared across forks or CI agents)
-- Default size: **32** entries — LRU eviction after that
-
----
-
-## Integration Testing - The Need for Speed
-
-- **The Problem:** Integration tests require a started & initialized Spring `ApplicationContext`, which slows down the build
-- **The Solution:** Spring Test `TestContext` Caching – stores an already started Spring `ApplicationContext` for reuse
-- This feature is part of Spring Test (included in every Spring Boot project via `spring-boot-starter-test`)
 
 Example of speed improvement:
 
@@ -127,7 +98,7 @@ Example of speed improvement:
 
 ---
 
-### How the Cache Key is Built
+### How the Cache is Built
 
 ```java
 // DefaultContextCache.java
@@ -170,6 +141,18 @@ An [open-source Spring Test utility](https://github.com/PragmaTech-GmbH/spring-t
 
 ### The Final Boss
 
+`@DirtiesContext` is the most common context cache killer:
+
+> Test annotation which indicates that the ApplicationContext associated with a test is dirty and should therefore be closed and removed from the context cache.
+> 
+> Use this annotation if a test has modified the context — for example, by modifying the state of a singleton bean, modifying the state of an embedded database, etc. 
+> 
+> Subsequent tests that request the same context will be supplied a new context.
+
+---
+
+## Use `@DirtiesContext` with Caution
+
 Developers tend to consult AI/StackOverflow for integration test issues and often copy advice from the internet without knowing the implications:
 
 ```java
@@ -186,49 +169,17 @@ The setup above will **disable** the context caching feature and slow down the b
 
 ---
 
-### New in Spring Framework 7: Pausing Contexts
-
-See Release Notes von [Spring Framework 7.0.0 M7](https://spring.io/blog/2025/07/17/spring-framework-7-0-0-M7-available-now).
-
-> Pausing of Test Application Contexts
->
-> The Spring TestContext framework is caching application context instances within test suites for faster runs. As of Spring Framework 7.0, we now pause test application contexts when
-> they're not used.
->
-> This means an application context stored in the context cache will be stopped when it is no longer actively in use and automatically restarted the next time the
-> context is retrieved from the cache.
->
-> Specifically, the latter will restart all auto-startup beans in the application context, effectively restoring the lifecycle state.
-
----
-
-
-## How the Cache Key Is Built
-
-`MergedContextConfiguration` is the cache key. It includes:
-
-| Component | Annotation |
-|---|---|
-| Active profiles | `@ActiveProfiles` |
-| Context initializers | `@ContextConfiguration(initializers = ...)` |
-| Property source locations | `@TestPropertySource(locations = ...)` |
-| Inline properties | `@TestPropertySource(properties = ...)` or `@SpringBootTest(properties = ...)` |
-| Bean overrides | `@MockitoBean`, `@SpyBean` |
-
----
-
-## Context Cache Killers
+## Other Context Cache Killers
 
 | Pattern | Reason |
 |---|---|
 | `@DirtiesContext` | Destroys the context — forces cold start |
 | `@MockitoBean` | Replaces a bean → different cache key |
-| `@SpyBean` | Wraps a bean → different cache key |
 | `@ActiveProfiles("test")` | Adds a profile → different key |
 | `@TestPropertySource(properties = "x=1")` | Extra property → different key |
 | `@SpringBootTest(properties = "x=1")` | Extra property → different key |
 
-These are fine **in isolation** — the problem is **using different ones** across test classes.
+These are fine **in isolation** - the problem is **using different ones** across test classes.
 
 ---
 
@@ -371,6 +322,23 @@ To keep the single cached context:
 
 ---
 
+
+### New in Spring Framework 7: Pausing Contexts
+
+See Release Notes von [Spring Framework 7.0.0 M7](https://spring.io/blog/2025/07/17/spring-framework-7-0-0-M7-available-now).
+
+> Pausing of Test Application Contexts
+>
+> The Spring TestContext framework is caching application context instances within test suites for faster runs. As of Spring Framework 7.0, we now pause test application contexts when
+> they're not used.
+>
+> This means an application context stored in the context cache will be stopped when it is no longer actively in use and automatically restarted the next time the
+> context is retrieved from the cache.
+>
+> Specifically, the latter will restart all auto-startup beans in the application context, effectively restoring the lifecycle state.
+
+---
+
 ## Real-World Example: Scout24
 
 Scout24 (German real-estate platform, ~200 engineers) ran into this pattern at scale:
@@ -384,6 +352,15 @@ Scout24 (German real-estate platform, ~200 engineers) ran into this pattern at s
 - 12 unique `@SpringBootTest` configurations across 40 test classes
 - `@DirtiesContext` sprinkled to "fix" ordering issues
 - `@MockitoBean` on service classes for convenience
+
+---
+
+
+**Rule of thumb:**
+- One shared context for the **happy-path integration tests**
+- Sliced tests (`@WebMvcTest`, `@DataJpaTest`) for layer-specific edge cases
+- Only spin up a second context when there is a **genuine architectural reason**
+
 
 ---
 
@@ -439,6 +416,22 @@ Use WireMock stubs for all external HTTP calls.
 
 **Anti-pattern:** replacing sliced tests with `@SpringBootTest` + `@MockitoBean`
 → slower suite AND breaks context caching
+
+---
+
+## General Questions
+
+> *"If I have a `@SpringBootTest` that covers everything, why bother with `@WebMvcTest`?"*
+
+- **Speed**: Sliced contexts start in < 1 s vs 10–30 s for a full context
+- **Corner cases**: reproducing a specific validation error or HTTP status via `@SpringBootTest` often requires a `@MockitoBean` → **that creates a new context**
+- **Focus**: sliced tests fail closer to the root cause — easier to debug
+- **Feedback loop**: run 50 `@WebMvcTest` tests in the time one `@SpringBootTest` starts
+
+**Rule of thumb:**
+- Extensive sliced testing for the **web** and **persistence** layers
+- `@SpringBootTest` for key **integration paths** — the happy path and critical flows
+- Never `@MockitoBean` your way through a `@SpringBootTest` — use sliced testing instead
 
 ---
 
