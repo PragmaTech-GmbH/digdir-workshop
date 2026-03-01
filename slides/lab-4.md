@@ -76,7 +76,7 @@ Notes:
 
 ## Challenges: Starting a Full Context
 
-1. **HTTP calls during context initialisation** → external API unavailable in CI/offline
+1. **HTTP calls during context launch and tests** → external API may be unavailable in CI/offline
 2. **Infrastructure dependencies** → databases, caches, message brokers
 3. **Security** → OAuth2, JWT, Basic Auth, role-protected endpoints
 4. **Data preparation & cleanup** → consistent, isolated state between tests
@@ -88,17 +88,26 @@ Notes:
 
 ```java
 public BookMetadataResponse getBookByIsbn(String isbn) {
-  return webClient.get()
-    .uri("/isbn/{isbn}", isbn)
+  String bibKey = "ISBN:" + isbn;
+  
+  Map<String, BookMetadataResponse> result = webClient.get()
+    .uri(uriBuilder -> uriBuilder
+      .path("/api/books")
+      .queryParam("bibkeys", bibKey)
+      .queryParam("format", "json")
+      .queryParam("jscmd", "data")
+      .build())
     .retrieve()
-    .bodyToMono(BookMetadataResponse.class)
+    .bodyToMono(new ParameterizedTypeReference<Map<String, BookMetadataResponse>>() {})
     .block();
+  
+  return result != null ? result.get(bibKey) : null;
 }
 ```
 
 ---
 
-## Challenge 1: HTTP Calls During Context Init
+## Challenge 1: HTTP Communication during Tests
 
 ```java
 @Bean
@@ -146,20 +155,22 @@ public CommandLineRunner initializeBookMetadata() {
 
 ## Introducing WireMock
 
-- In-memory (or container) Jetty to stub HTTP responses
+- In-memory (or Docker container) Jetty to stub HTTP responses to simulate a remote HTTP API
 - Simulate failures, slow responses, etc.
-- Stateful setups possible (scenarios): first request fails, then succeeds
 - Alternatives: MockServer, MockWebServer, etc.
 
 ```java
 WireMockServer wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
 wireMockServer.start();
 
+// Feels a bit like Mockito, but for HTTP stubbing
 wireMockServer.stubFor(
-  get("/isbn/" + isbn)
-    .willReturn(aResponse()
-      .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-      .withBodyFile(isbn + "-success.json"))
+  WireMock.get(urlPathEqualTo("/api/books"))
+    .withQueryParam("bibkeys", WireMock.equalTo("ISBN:" + isbn))
+    .willReturn(
+      aResponse()
+        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+        .withBodyFile(isbn + "-success.json")))
 );
 ```
 
@@ -217,7 +228,7 @@ wireMockServer.stopRecording();
 ## Making Our Application Context Start
 
 - Stubbing HTTP responses during the launch of our Spring Context
-- Introducing a new concept: `ContextInitializer`
+- Introducing a new building block: `ApplicationContextInitializer`
 
 ```java
 WireMockServer wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
@@ -260,105 +271,128 @@ class PostgresTestcontainerConfig {
 
 ---
 
-## Challenge 3: Security
+## Using `@SpringBootTest` to Start the Entire Context
 
-- Actual test setup depends on the used authentication mechanism:
-  - **OAuth2 Resource Server** - every request must carry a valid and signed JWT
-  - **Basic Auth** - provide test users
-  - **API Keys** - provide test keys
+To start the Servlet Container or not?
+
+We can control the web environment of our context setup with `@SpringBootTest`:
 
 ```java
-// MockMvc: inject a mock security context — no real token exchange
-mockMvc.perform(get("/api/books/1")
-    .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
-  .andExpect(status().isOk());
-
-// Annotation shortcut
-@WithMockUser(roles = "USER")
-void shouldReturnBook() { ... }
+@SpringBootTest                                                // MOCK (default)
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)   // real HTTP, random port
+@SpringBootTest(webEnvironment = WebEnvironment.DEFINED_PORT)  // real HTTP, static port
+@SpringBootTest(webEnvironment = WebEnvironment.NONE)          // no web layer at all
 ```
+
 
 ---
 
-## Challenge 4: Data Preparation & Cleanup
 
-**Preparing data:**
+| Mode | Web server                                    | Real HTTP | Test client                                             |
+|---|-----------------------------------------------|---|---------------------------------------------------------|
+| `MOCK` *(default)* | Mock servlet environment                      | ❌ | `MockMvc`                                               |
+| `NONE` | No servlet                                    | ❌ | none (service/batch tests)                              |
+| `RANDOM_PORT` | Real embedded servlet container (e.g. Tomcat) | ✅ | `WebTestClient` / `RestTestClient` / `TestRestTemplate` |
+| `DEFINED_PORT` | Real embedded container (e.g. Tomcat)                          | ✅ | `WebTestClient` / `RestTestClient`/ `TestRestTemplate`  |
+
+Two variants matter for nearly every integration test: **`MOCK`** and **`RANDOM_PORT`**.
+
+
+---
+
+## Variant 1: `MOCK` - No Real Servlet Container, No Real HTTP
+
+- The integration tests starts the entire `ApplicationContext` but **does not start a real HTTP server**
+- Instead, it uses `MockMvc` to simulate HTTP requests in a mocked servlet environment, similar to `@WebMvcTest` but with the full context loaded.
 
 ```java
-@BeforeEach
-void setUp() {
-  openLibraryApiStub.stubForSuccessfulBookResponse(VALID_ISBN); // WireMock
-  bookRepository.save(new Book(...));                           // programmatic
+@SpringBootTest
+@AutoConfigureMockMvc
+class SampleIT {
+
+  @Autowired
+  private MockMvc mockMvc;
+  
+  @Test
+  void sampleTest() {
+    // test against your entire application, using a mocked servlet environment
+  }
 }
 ```
 
-**Cleanup — strategy depends on the HTTP client:**
+---
 
-| Client | Thread | Cleanup |
-|---|---|---|
-| MockMvc | **Same** as test | `@Transactional` → automatic rollback |
-| WebTestClient | **Different** (server thread) | `@AfterEach` → `repository.deleteAll()` |
-| TestRestTemplate | **Different** (server thread) | `@AfterEach` → `repository.deleteAll()` |
+## Variant 2: `RANDOM_PORT` - Entire Context with Servlet Container
+
+```java
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient // choose one
+@AutoConfigureTestRestTemplate // choose one
+@AutoConfigureRestTestClient // choose one
+class SampleIT {
+
+  @LocalServerPort
+  private int port;
+  
+  @Autowired
+  private WebTestClient webTestClient; // <- auto-configured for the random port
+
+  @Test
+  void sampleTest() {
+    this.webTestClient.get().uri("/api/books").exchangeSuccessfully();
+  }
+}
+```
 
 ---
 
-## Wrap-Up: Day 1 — Lab 1 & Lab 2
 
-**Lab 1 · JUnit 5 Fundamentals**
+## Wrap-Up: Day 1
 
-- Test pyramid: unit → sliced → integration → E2E
-- JUnit 5 lifecycle: `@BeforeEach`, `@AfterEach`, `@Nested`, `@ParameterizedTest`
-- AssertJ for fluent, readable assertions
+**Lab 1: Unit Testing with Spring Boot**
+
+- Automated testing helps shipping code faster with more confidence
+- `spring-boot-starter-test` comes with batteries included: JUnit 5, AssertJ, Mockito, Spring Test, etc.
+- JUnit Jupiter extensions offer a flexible way to outsource cross-cutting testing concerns
+- Effective unit testing requires thoughtful design: constructor injection, small classes, clear separation of concerns, avoiding static call
 - Maven Surefire (unit) vs. Failsafe (integration `*IT.java`) plugins
 
-**Lab 2 · Web Layer: `@WebMvcTest`**
+---
 
-- Loads only controllers + security config — no database, no service beans
-- MockMvc: `perform()` → `andExpect()` for request/response verification
+**Lab 2: Sliced Testing with `@WebMvcTest`**
+
+- Unit testing is not sufficient for all parts of our application, see the web layer
+- Slice testing loads only relevant beans for a particular layer → faster and more focused tests
+- `@WebMvcTest` loads the web layer only - no service or repository beans
+- `MockMv`c: acts is a mocked servlet environment to test controllers without starting a server
 - `@MockitoBean` stubs the service layer
 - Spring Security: `@WithMockUser`, `.with(jwt())`, `.with(csrf())`
 - Validates HTTP status, JSON paths, headers, and error responses
 
 ---
 
-## Wrap-Up: Day 1 — Lab 3
+**Lab 3: Sliced testing the Persistence Layer: `@DataJpaTest`**
 
-**Persistence Layer: `@DataJpaTest`**
-
-- Loads JPA layer only — no web, no security
+- Loads JPA layer (`DataSource`, `EntityManager`, `Repository`, ...) only - no web, no security
 - `@Transactional` by default → each test rolls back automatically
 - Replace H2 with a real Postgres via **Testcontainers** + `@ServiceConnection`
 - `TestEntityManager` for low-level entity manipulation
 - `@Sql` for declarative test data loading
-- Native queries (`to_tsvector`, `ts_rank`) must be tested against a real DB engine
-
-**JSON & HTTP Client Slices**
-
-- `@JsonTest` → verifies Jackson serialization / deserialization in isolation
-- `@RestClientTest` → stubs outbound HTTP with `MockRestServiceServer`; only works with `RestClient` / `RestTemplate` — use WireMock for `WebClient`
-- Both slices are faster and simpler than a full `@SpringBootTest`
+- Focus on the following for your repository tests: native queries, complex mapping, n+1 problems, don't test Spring Data JPA itself
+- There are more test slices like `@JsonTest` or `@RestClientTest`
 
 ---
 
-## Wrap-Up: Day 1 — Lab 4
 
-**Full Context: `@SpringBootTest`**
+**Lab 4: Integration Testing Part I - Booting the Entire Context**
 
-- Boots the entire `ApplicationContext` — closest to production
-- Challenges: external HTTP on startup, infrastructure deps, security, test data
-- **WireMock**: stubs outbound HTTP at the socket level — offline, deterministic
-- **Testcontainers**: real Postgres container managed by the JVM test lifecycle
-- **`ContextInitializer`**: registers WireMock stubs before beans are initialised
-- **Spring Security Test**: `jwt()`, `@WithMockUser` — no real auth server needed
-
-**Data Cleanup Strategy**
-
-| Test Client | Cleanup |
-|---|---|
-| MockMvc | `@Transactional` → automatic rollback |
-| WebTestClient / TestRestTemplate | `@AfterEach` deleteAll |
-
-Tomorrow: full-context exercises, context caching, and test performance
+- Integration tests start the entire `ApplicationContext` - closest to production
+- **WireMock**: stubs outbound HTTP to make tests deterministic and offline-capable
+- **Testcontainers**: Manage external infrastructure dependencies in tests with real images
+- **`ApplicationContextInitializer`**: registers WireMock stubs before beans are initialised
+- `@SpringBootTest` comes with two general options:
+  - `webEnvironment = WebEnvironment.MOCK` → no real HTTP server, use `MockMvc`
+  - `webEnvironment = WebEnvironment.RANDOM_PORT` → real HTTP server on random port, use `TestRestTemplate` or `WebTestClient`
 
 ---
 

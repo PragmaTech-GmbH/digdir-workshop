@@ -131,6 +131,11 @@
       <version>2.0.1</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -174,7 +179,8 @@
             <param>pragmatech.digital.workshops.lab8.service.LateReturnFeeCalculator</param>
           </targetClasses>
           <targetTests>
-            <param>pragmatech.digital.workshops.lab8.experiment.LateReturnFeeCalculatorTest</param>
+<!--            <param>pragmatech.digital.workshops.lab8.experiment.LateReturnFeeCalculatorTest</param>-->
+            <param>pragmatech.digital.workshops.lab8.experiment.LateReturnFeeCalculatorBadTest</param>
           </targetTests>
           <mutators>
             <mutator>DEFAULTS</mutator>
@@ -183,6 +189,9 @@
           <outputFormats>
             <param>HTML</param>
           </outputFormats>
+          <jvmArgs>
+            <value>-XX:+EnableDynamicAgentLoading</value>
+          </jvmArgs>
         </configuration>
       </plugin>
     </plugins>

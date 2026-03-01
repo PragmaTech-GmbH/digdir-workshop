@@ -72,10 +72,9 @@ class Exercise1MockMvcIntegrationTest {
   @Test
   void shouldReturnAllBooksWhenUsingMockMvc() {
     // TODO:
+    // 0. Pre-populate the database with some books
     // 1. Perform a GET to /api/books (this endpoint is publicly accessible)
-    //
     // 2. Assert the response status is 200 OK
-    //
     // 3. Assert the response body is a JSON array using jsonPath("$").isArray()
   }
 

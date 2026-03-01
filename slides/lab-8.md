@@ -25,23 +25,9 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## Discuss Exercises from Lab 7
 
----
-
-## Lab 7 Recap
-
-### What We Did
-
-- Configured JUnit Jupiter parallel execution (`junit-platform.properties`) and Maven Surefire `forkCount`
-- Identified parallel-unsafe patterns: static mutable state, hardcoded ISBNs, `count()` assertions
-- Refactored integration tests to use `@Transactional` + UUID-based test data
-- Built a reusable `SharedPostgresContainerExtension` for singleton container management
-
-### Key Takeaways
-
-- Two independent axes: JVM-level forks (`forkCount`) + thread-level (`JUnit parallel`)
-- Integration tests: parallelize at class level only (`mode.default = same_thread`)
-- Pre-pull Docker images in CI; cache Maven dependencies; always set `timeout-minutes`
-- `redirectTestOutputToFile` + `--fail-at-end` are essential CI quality-of-life improvements
+- Exercises:
+  - `Exercise1ParallelExecutionTest`
+  - `Exercise2TestIsolationTest`
 
 ---
 
@@ -49,13 +35,13 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 # Lab 8
 
-## General Testing Hacks
+## General Spring Boot Testing Tips & Tricks and Q&A
 
-### OutputCapture · Mutation Testing · Container Logs · Application Events · ApplicationContextRunner · ArchUnit · Useful Libraries · TDD with AI
+### Various Spring Boot Testing Hacks
 
 ---
 
-# `OutputCaptureExtension`
+## `OutputCaptureExtension`
 
 Capture `System.out`, `System.err`, and log output **without** starting a Spring context.
 
@@ -80,8 +66,19 @@ class OutputCaptureTest {
   }
 }
 ```
+  
+---
 
-**Use cases:** verify startup banners, log messages from `@EventListener`, warn-on-missing-config.
+## Mutation Testing with PIT
+
+- Having high code coverage might give you a **false sense of security**
+- Mutation Testing with [PIT](https://pitest.org/quickstart/)
+- Beyond Line Coverage: Traditional tools like JaCoCo show which code runs during tests, but PIT verifies if our tests actually detect when code behaves incorrectly by introducing "**mutations**" to our source code.
+- Quality Guarantee: PIT automatically **modifies our code** (changing conditionals, return values, etc.) to ensure our tests fail when they should, **revealing blind spots** in seemingly comprehensive test suites.
+
+---
+
+![center h:500 w:1300](assets/mutation-testing-explained.png)
 
 ---
 
@@ -92,7 +89,7 @@ class OutputCaptureTest {
 ```java
 @Test
 void shouldReturnFee() {
-  double fee = cut.calculateFee(borrowedBook, borrowedDate);
+  BigDecimal fee = cut.calculateFee(borrowedBook, borrowedDate);
   assertThat(fee).isNotNull(); // ← This assertion is meaningless!
 }
 ```
@@ -101,7 +98,7 @@ void shouldReturnFee() {
 
 ```bash
 cd labs/lab-8
-./mvnw pitest:mutate
+./mvnw pitest:mutationCoverage
 # Opens target/pit-reports/index.html
 ```
 
@@ -114,15 +111,15 @@ cd labs/lab-8
 
 ```java
 // Production code with multiple fee tiers
-public double calculateFee(Book book, LocalDate borrowedDate) {
-  if (book.getStatus() != BookStatus.BORROWED) return 0.0;
+public BigDecimal calculateFee(Book book, LocalDate borrowedDate) {
+  if (book.getStatus() != BookStatus.BORROWED) return BigDecimal.ZERO;
 
   long daysOverdue = ChronoUnit.DAYS.between(borrowedDate, LocalDate.now(clock));
 
-  if (daysOverdue <= 0)       return 0.0;
-  else if (daysOverdue <= 7)  return daysOverdue * 1.0;
-  else if (daysOverdue <= 14) return daysOverdue * 1.5;
-  else                        return daysOverdue * 2.0;
+  if (daysOverdue <= 0)       return BigDecimal.ZERO;
+  else if (daysOverdue <= 7)  return RATE_TIER_ONE.multiply(BigDecimal.valueOf(daysOverdue));
+  else if (daysOverdue <= 14) return RATE_TIER_TWO.multiply(BigDecimal.valueOf(daysOverdue));
+  else                        return RATE_TIER_THREE.multiply(BigDecimal.valueOf(daysOverdue));
 }
 ```
 
@@ -132,7 +129,7 @@ public double calculateFee(Book book, LocalDate borrowedDate) {
 
 ---
 
-# Following Container Logs
+## Following Container Logs
 
 Pipe Testcontainers output to your SLF4J logger for debugging:
 
@@ -154,6 +151,8 @@ class ContainerLogsTest {
 }
 ```
 
+---
+
 **Add to `LocalDevTestcontainerConfig`** to always stream container logs during test runs:
 
 ```java
@@ -163,9 +162,9 @@ return new PostgreSQLContainer<>("postgres:16-alpine")
 
 ---
 
-# `@RecordApplicationEvents`
+## `@RecordApplicationEvents`
 
-Verify that your application code publishes the **right Spring events** — without mocking.
+Verify that your application code publishes the **right Spring events** - without mocking.
 
 ```java
 @SpringBootTest
@@ -193,7 +192,7 @@ class RecordApplicationEventsTest {
 
 ---
 
-# `ApplicationContextRunner`
+## `ApplicationContextRunner`
 
 Test **auto-configuration and conditional beans** without starting a full Spring Boot context.
 
@@ -225,7 +224,7 @@ class ApplicationContextRunnerTest {
 
 ---
 
-# ArchUnit — Architecture Testing
+## ArchUnit - Architecture Testing
 
 **What is it?** A Java library that lets you write **executable architecture rules** as unit tests.
 
@@ -237,7 +236,11 @@ class ApplicationContextRunnerTest {
 | Violations discovered in code review | Violations fail the build immediately |
 | "Soft" conventions | Hard rules with clear error messages |
 
-**No Spring context required** — ArchUnit analyzes the compiled bytecode.
+**No Spring context required** - ArchUnit analyzes the compiled bytecode.
+
+---
+
+## Adding ArchUnit to Our Project
 
 ```xml
 <dependency>
@@ -279,13 +282,49 @@ class ArchUnitTest {
 
 ---
 
-## ArchUnit — Layered Architecture Visualized
+## Object Mother Pattern - Centralise Test Data Creation
 
-![w:900 center](assets/lab-8-arch-layers.png)
+**Problem:** every test constructs its own objects → brittle, verbose, inconsistent.
+
+```java
+// ❌ Repeated in every test — breaks when the Book constructor changes
+Book book = new Book("978-0-13-468599-1", "Clean Code", "Martin", LocalDate.of(2008, 8, 1));
+book.setStatus(BookStatus.BORROWED);
+```
 
 ---
 
-# Useful Libraries: Selenide
+**Solution:** a dedicated factory class with named, pre-configured instances:
+
+```java
+public class BookMother {
+
+  public static Book availableBook() {
+    return new Book("978-0-13-468599-1", "Clean Code", "Robert C. Martin", LocalDate.of(2008, 8, 1));
+  }
+
+  public static Book borrowedBook() {
+    Book book = availableBook();
+    book.setStatus(BookStatus.BORROWED);
+    return book;
+  }
+
+  public static Book effectiveJava() {
+    return new Book("978-0-13-468599-0", "Effective Java", "Joshua Bloch", LocalDate.of(2018, 1, 6));
+  }
+}
+```
+
+```java
+// ✅ Tests read like a specification
+Book book = BookMother.borrowedBook();
+```
+
+**Constructor changes?** Fix `BookMother` once - all tests stay green.
+
+---
+
+## Useful Libraries: Selenide
 
 **Selenium wrapper** with a fluent API that reduces boilerplate and auto-retries assertions.
 
@@ -300,6 +339,8 @@ $("#submit").click();
 $$(".book-card").shouldHave(size(5));
 $(".book-title").shouldHave(text("Effective Java"));
 ```
+
+---
 
 **Key features:**
 - Auto-waits for elements (configurable timeout, no explicit waits)
@@ -316,7 +357,7 @@ $(".book-title").shouldHave(text("Effective Java"));
 
 ---
 
-# Useful Libraries: GreenMail / Mailpit
+## Useful Libraries: GreenMail / Mailpit
 
 **Test email sending** without a real SMTP server.
 
@@ -342,13 +383,11 @@ class BookNotificationServiceTest {
 }
 ```
 
-**Mailpit** — alternative with a web UI for local development (run as Docker container).
-
 ---
 
-# Useful Libraries: Gatling / JMH
+## Useful Libraries: Gatling / JMH
 
-## Gatling — Load & Performance Testing
+### Gatling - Load & Performance Testing
 
 ```scala
 class BookApiSimulation extends Simulation {
@@ -362,10 +401,12 @@ class BookApiSimulation extends Simulation {
 ```
 
 ```bash
-mvn gatling:test    # Generates HTML report in target/gatling/
+mvn gatling:test   # Generates HTML report in target/gatling/
 ```
 
-## JMH — Micro-benchmarking
+---
+
+### JMH - Micro-benchmarking
 
 ```java
 @Benchmark
@@ -379,11 +420,11 @@ public void calculateFee(Blackhole bh) {
 
 ---
 
-# Useful Libraries: Pact / Spring Cloud Contract
+## Useful Libraries: Pact / Spring Cloud Contract
 
-**Consumer-Driven Contract Testing** — verify both sides of an API independently.
+**Consumer-Driven Contract Testing** - verify both sides of an API independently.
 
-```
+```text
 Consumer (Frontend/Client)          Provider (Backend)
          │                                  │
          ▼                                  ▼
@@ -401,12 +442,9 @@ Contract.make {
   response { status 200; body(id: 1, title: "Effective Java") }
 }
 ```
-
-**When to use:** Microservice boundaries, separate deployment cycles, multiple consumers.
-
 ---
 
-# TDD with AI: CLAUDE.md Conventions
+## TDD with AI: CLAUDE.md Conventions
 
 Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generation:
 
@@ -419,7 +457,11 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 - Group related tests with @Nested
 - Use parameterized tests for boundary values
 - Use Clock injection, never LocalDate.now() directly
+
+... more conventions ...
 ```
+
+---
 
 **AI-assisted TDD workflow:**
 
@@ -431,7 +473,7 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 
 ---
 
-# Diffblue Cover — AI-Generated Unit Tests
+## Diffblue Cover - AI-Generated Unit Tests
 
 **What it is:** A commercial tool that automatically generates JUnit unit tests for existing Java code using AI.
 
@@ -445,179 +487,258 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 - Generates regression tests before refactoring
 - Runs on CI to detect new uncovered code
 
-**Limitations:**
-- Generated tests may test implementation details, not behavior
-- Requires review — quantity ≠ quality
-- No substitute for thinking about *what* to test and *why*
+---
 
-> **Best used as:** a starting point for untested legacy code, not a replacement for thoughtful TDD.
+<!-- _class: section -->
+
+# Confidence in Every Commit
+
+## Beyond Tests: The Full Feedback Loop
+
+---
+
+## Tests Are Necessary - But Not Sufficient
+
+A green test suite tells you the code is correct. It does not tell you the system is healthy in production.
+
+**Confidence in every commit** requires closing the loop after deployment:
+
+| Layer | Question answered |
+|---|---|
+| Tests | Does the code behave as intended? |
+| Observability | Is the running system healthy right now? |
+| Deployment strategy | Can we release without risk or downtime? |
+| Feature flags | Can we decouple release from deployment? |
+| Recovery automation | Can we self-heal without human intervention? |
+
+---
+
+## Meaningful Alerts & Developer-Friendly Observability
+
+Alerts that fire on every small spike train developers to ignore them - alert on **symptoms that affect users**, not raw metrics.
+
+**MDC (Mapped Diagnostic Context)** enriches every log line with request-scoped metadata so developers can trace a single request across thousands of log lines:
+
+```java
+// Set once per request (e.g. in a filter or interceptor)
+MDC.put("tenantId", tenantId);
+MDC.put("userId",   userId);
+MDC.put("traceId",  traceId);
+
+// Every subsequent log line automatically includes these fields
+log.info("Book created");
+// → {"tenantId":"digdir","userId":"u42","traceId":"abc123","message":"Book created"}
+```
+
+---
+
+**Good observability checklist:**
+- Structured JSON logs (Logback + `logstash-logback-encoder`) shipped to a central store
+- Dashboards scoped to **error rate**, **p99 latency**, and **business KPIs** - not CPU graphs
+- Runbooks linked directly from alert notifications
+
+---
+
+## Automated Deployments & Rollback
+
+Manual deployments introduce human error and slow incident recovery. Every deployment step should be automated and every deployment should be reversible in under five minutes.
+
+**Deployment pipeline essentials:**
+
+```text
+commit → CI (tests pass) → build image → push to registry
+    → deploy to DEV (smoke test)
+    → deploy to QA  (E2E / nightly)
+    → deploy to PROD (blue/green swap or rolling update)
+              │
+              └── automated rollback if health check fails
+```
+
+---
+
+**Rollback triggers to Monitor**
+- Health check endpoint (`/actuator/health`) returns non-200 for > 60 s after deploy
+- Error rate spikes above baseline within the first 5 minutes
+- P99 latency exceeds SLO threshold post-deploy
+
+---
+
+## Blue/Green & A/B Deployments
+
+**Blue/green** eliminates downtime and provides instant rollback: run two identical environments, flip the load balancer, keep the old environment warm.
+
+```text
+              Load Balancer
+                   │
+         ┌─────────┴─────────┐
+         ▼                   ▼
+    Blue (v1.2)         Green (v1.3)  ← new version deployed here
+    [100% traffic]      [0% traffic, health checked]
+                             │
+                 swap: Green gets 100%, Blue stays warm
+                             │
+              rollback = swap back in < 1 minute
+```
+
+---
+
+**A/B testing** routes a percentage of real traffic to the new version before a full rollout:
+
+```text
+100% traffic → v1.2 (control)
+  ↓
+10% traffic  → v1.3 (variant)   ← measure conversion, errors, latency
+90% traffic  → v1.2 (control)
+  ↓
+100% traffic → v1.3 (if metrics OK)
+```
+
+Requires feature-flag or traffic-splitting infrastructure (Nginx, Istio, AWS ALB, LaunchDarkly).
+
+---
+
+## Feature Flags: Decouple Deployment from Release
+
+**Deployment** = shipping code to production. 
+**Release** = making a feature visible to users. Feature flags let you do both independently.
+
+```java
+if (featureFlags.isEnabled("new-book-search", userId)) {
+  return newBookSearchService.search(query);
+} else {
+  return legacyBookSearchService.search(query);
+}
+```
+
+---
+
+**What this enables:**
+
+| Scenario | Without flags | With flags                            |
+|---|---|---------------------------------------|
+| Half-finished feature | Block PR until done | Merge behind flag, release when ready |
+| Risky refactor | Full rollout or nothing | Canary: enable for 1% of users        |
+| Incident response | Redeploy to revert | Flip flag - instant, no deploy        |
+| Beta testing | Separate branch | Enable flag for specific tenants      |
+
+**Tooling options:** LaunchDarkly · Unleash (open source) · Spring Boot `@ConditionalOnProperty` for internal flags
+
+---
+
+## Recovery Automation
+
+The goal is not zero failures - it is **fast, automatic recovery** when failures occur.
+
+**Recovery patterns to implement:**
+
+| Pattern | What it handles |
+|---|---|
+| Liveness probe restart | JVM deadlock, infinite loop |
+| Readiness probe traffic cut | Slow startup, warming up caches |
+| Circuit breaker (Resilience4j) | Downstream service unavailable |
+| Retry with exponential backoff | Transient network errors |
+| Dead-letter queue | Failed async message processing |
 
 ---
 
 # Workshop Summary
 
-## Lab 1 — JUnit 5 & The Testing Pyramid
+## Lab 1 - Unit Testing with Spring Boot
 
-- JUnit 5 annotations: `@Test`, `@BeforeEach`, `@Nested`, `@ParameterizedTest`, `@Tag`
-- Maven Surefire (unit) vs. Failsafe (integration) plugin split
-- Test categorization with `@Tag` and Maven profiles (`-Punit-tests`)
-- The testing pyramid: unit → integration → e2e; prefer fast tests at the bottom
-
----
-
-# Workshop Summary
-
-## Lab 2 — Sliced Testing & Testcontainers
-
-- `@WebMvcTest` — loads only the web layer (controller + filters), fast and focused
-- `@DataJpaTest` — loads only JPA layer with in-memory or real DB
-- `@JsonTest` — tests JSON serialization/deserialization in isolation
-- `@RestClientTest` — tests HTTP clients with a mock server
-- Testcontainers with `@ServiceConnection` — real PostgreSQL in Docker, zero config
+- The testing pyramid: write most tests as fast unit tests; reserve slow integration tests for critical paths only
+- JUnit 5/6 lifecycle annotations (`@BeforeEach`, `@Nested`, `@ParameterizedTest`, `@Tag`) and the extension model for cross-cutting concerns
+- Maven Surefire runs `*Test.java` (unit); Failsafe runs `*IT.java` (integration) - keeping feedback loops separate
+- `spring-boot-starter-test` bundles AssertJ, Mockito, and the Spring Test framework out of the box
 
 ---
 
-# Workshop Summary
+## Lab 2 - Sliced Testing: The Web Layer
 
-## Lab 3 — WireMock & External APIs
-
-- WireMock standalone for stubbing HTTP dependencies in tests
-- `ApplicationContextInitializer` pattern to wire WireMock into Spring context
-- Stub request/response matching: URL, headers, body matchers
-- `WireMock.verify()` to assert outbound HTTP calls were made
-- Separating stub definitions into dedicated stub classes for reuse
+- `@WebMvcTest` loads only controllers, filters, and security config - no service or repository beans - starts in under a second
+- `MockMvc` simulates HTTP requests inside the JVM without a real server: assert status codes, JSON paths, and headers
+- `@MockitoBean` stubs the service layer so controllers can be tested in complete isolation from the database
+- Spring Security is fully active: use `@WithMockUser`, `.with(jwt())`, and `.with(csrf())` per test
 
 ---
 
-# Workshop Summary
+## Lab 3 - Sliced Testing: Persistence & HTTP Clients
 
-## Lab 4 — Best Practices & Mutation Testing
-
-- Best practices: test readability, meaningful names, AAA structure
-- `@MockitoBean` vs `@MockBean` (Spring Boot 3.4+)
-- Spring Boot test slices deep dive: what each slice loads
-- PIT mutation testing: detecting weak assertions and missing branches
-- AI-assisted test generation: using LLMs as a TDD pair programmer
+- `@DataJpaTest` loads only the JPA layer and wraps every test in a transaction that rolls back automatically
+- Replace H2 with a real PostgreSQL container via Testcontainers + `@ServiceConnection` to test against the production database engine
+- `@JsonTest` verifies Jackson serialisation/deserialisation in isolation; `@RestClientTest` stubs HTTP responses via `MockRestServiceServer`
+- Each slice loads only what it needs - failures pinpoint the right layer and the feedback loop stays fast
 
 ---
 
-# Workshop Summary
+## Lab 4 - Full Context Integration Testing
 
-## Lab 5 — Advanced Spring Test Slices
-
-- `@SpringBootTest` full context vs. targeted slices
-- Custom test slices with `@AutoConfigureXxx`
-- `@TestConfiguration` for test-only beans
-- Security testing: `@WithMockUser`, `@WithSecurityContext`
-- Validation testing with `@SpringBootTest(webEnvironment = NONE)`
+- `@SpringBootTest` boots the entire `ApplicationContext` - every bean, security config, and Flyway migration - closest to production
+- Four challenges: outbound HTTP on startup, infrastructure dependencies, security, and data cleanup — each requiring a deliberate solution
+- WireMock via `ApplicationContextInitializer` stubs outbound HTTP before beans initialize; Testcontainers manages a real PostgreSQL container
+- `MOCK` (MockMvc, `@Transactional` rollback) vs. `RANDOM_PORT` (real TCP, real commits, manual `@AfterEach` cleanup)
 
 ---
 
-# Workshop Summary
+## Lab 5 - MockMvc, WebTestClient & Context Customisation
 
-## Lab 6 — Spring Context Caching
-
-- Spring caches `ApplicationContext` across tests sharing the same configuration
-- Context cache killers: `@DirtiesContext`, `@MockitoBean`, `@ActiveProfiles`, `@TestPropertySource`
-- The `SharedIntegrationTestBase` pattern: one base class → one cached context
-- Scout24 example: 12 contexts → 2 contexts, 45 min → 12 min build time
-- Use consistent `@Import`, `@ContextConfiguration` across all integration tests
+- `MOCK`: test and server share the same thread → `@Transactional` wraps the whole call chain and rolls back automatically
+- `RANDOM_PORT`: real TCP to a separate Tomcat thread → `@Transactional` has no effect; use `@AfterEach deleteAll()` for cleanup
+- Customize the context per class with `@TestPropertySource`, `@ActiveProfiles`, `@TestConfiguration` + `@Import`, and `@Primary` beans
+- Prefer handwritten fakes with `@Primary` over `@MockitoBean` - every `@MockitoBean` variation forces a brand-new context startup
 
 ---
 
-# Workshop Summary
 
-## Lab 7 — Test Parallelization & CI Excellence
+## Lab 6 - Spring Context Caching
 
-- JUnit Jupiter parallel execution + Maven Surefire `forkCount` — complementary mechanisms
-- Safe integration test parallelization: `@Transactional` + UUID test data
-- Testcontainers: static `@Bean @ServiceConnection` singleton pattern
-- Connection pool exhaustion: reduce `hikari.maximum-pool-size` + maximize context reuse
-- GitHub Actions: `timeout-minutes`, `cache: maven`, `redirectTestOutputToFile`, `--fail-at-end`
+- Spring caches `ApplicationContext` using `MergedContextConfiguration` as the key - identical configs share one context across the suite
+- Before starting, Spring X-rays the test class and merges all annotations, initializers, `@MockitoBean` definitions, and property overrides into the key object; `hashCode`/`equals` decides hit or miss
+- Cache killers: `@DirtiesContext`, per-class `@MockitoBean`, varying `@ActiveProfiles`, inline `properties` on `@SpringBootTest`
+- The `SharedIntegrationTestBase` pattern consolidates all shared annotations into one abstract base class → one context for all integration tests
 
 ---
 
-# Workshop Summary
+## Lab 7 - Test Parallelisation & CI Excellence
 
-## Lab 8 — General Testing Hacks
-
-- `OutputCaptureExtension` — capture stdout/logs in tests without Spring context
-- Mutation testing with PIT — find weak assertions and untested branches
-- Container log capture — `Slf4jLogConsumer` + `getLogs()` for debugging
-- `@RecordApplicationEvents` — assert Spring application events are published
-- `ApplicationContextRunner` — test conditional beans in milliseconds
-- ArchUnit — enforce layered architecture rules as executable tests
-- GreenMail — test email sending without a real SMTP server
-- TDD with AI — CLAUDE.md conventions, test-first prompting, Diffblue Cover
+- JUnit Jupiter parallel execution (`junit-platform.properties`) + Maven Surefire `forkCount` are complementary and multiply each other's speedup
+- Safe parallel integration tests use UUID-prefixed test data or `@Transactional` rollback to prevent cross-test interference
+- Static `@Bean @ServiceConnection` Testcontainers fields share one container instance across all tests in the same context
+- GitHub Actions best practices: `timeout-minutes`, Maven cache, `--fail-at-end` to collect all failures, redirect test output to files
 
 ---
 
-# Testing Spring Boot Applications Masterclass
+## Lab 8 - General Testing Hacks & Libraries
 
-Want to go deeper after this workshop?
-
-**Online course:** _Testing Spring Boot Applications Masterclass_
-[rieckpil.de/testing-spring-boot-applications-masterclass](https://rieckpil.de/testing-spring-boot-applications-masterclass)
-
-**What's covered:**
-- 12+ hours of video content
-- 200+ exercises and code examples
-- `@WebMvcTest`, `@DataJpaTest`, WireMock, Testcontainers, Security testing
-- Continuous updates with every Spring Boot release
-
-**Philip's blog & resources:**
-- [rieckpil.de](https://rieckpil.de) — Spring Boot testing articles
-- [@rieckpil](https://x.com/rieckpil) — Follow for tips
+- `OutputCaptureExtension`, `Slf4jLogConsumer`, `@RecordApplicationEvents`, `ApplicationContextRunner` - lightweight utilities for targeted testing without a full context
+- PIT mutation testing introduces code mutations automatically: 100% line coverage ≠ 100% confidence; strong assertions are essential
+- ArchUnit enforces layered architecture rules as executable unit tests in CI - soft conventions become hard failures
+- Object Mother pattern centralizes test data creation; GreenMail, Selenide, and Pact fill gaps that Spring Boot's built-in slices do not cover
 
 ---
 
-![bg](./assets/end.jpg)
+![bg right:33%](assets/qa-screen.jpg)
 
-## Q & A
 
-### Thank you for participating!
+## Time for General Q&A
 
-_Workshop materials: [github.com/pragmatech-digital/digdir-workshop](https://github.com/pragmatech-digital/digdir-workshop)_
+- Do you have any questions about the exercises, the solutions, or the general testing tips and libraries we covered?
+- Are there any specific testing challenges you've faced in your projects that you'd like to discuss?
+- Would you like to see a live demo of any of the tools or techniques we covered?
 
----
-
-# Time For Some Exercises
-
-## Lab 8
 
 ---
 
-## Exercise 1: Write ArchUnit Architecture Rules
+## Joyful Testing!
 
-**Goal:** Enforce the layered architecture with custom ArchUnit rules.
+Workshop materials are on [GitHub](https://github.com/PragmaTech-GmbH/digdir-workshop/).
 
-**Steps:**
-1. Open `exercises/Exercise1ArchUnitTest.java`
-2. Replace the `null` placeholders with real ArchUnit rules:
-   - Rule 1: No class in `controller` package should access `repository` package directly
-   - Rule 2: Add a `layeredArchitecture()` rule covering Controller → Service → Repository
-3. Run `./mvnw test -Dtest=Exercise1ArchUnitTest` — rules should pass on the clean codebase
-4. (Optional) Temporarily add a direct `BookRepository` import to `BookController` and watch the rule fail
+The rendered slides are in the `slides/` folder.
 
-**Solution:** `solutions/Solution1ArchUnitTest.java`
+![bg right:33%](assets/end.jpg)
 
----
+Reach out any time via:
+- [LinkedIn](https://www.linkedin.com/in/rieckpil) (Philip Riecks)
+- [X](https://x.com/rieckpil) (@rieckpil)
+- [Mail](mailto:philip@pragmatech.digital) (philip@pragmatech.digital)
 
-## Exercise 2: Test Application Events with @RecordApplicationEvents
 
-**Goal:** Verify that `BookCreatedEvent` is published when a book is created.
-
-**Steps:**
-1. Open `exercises/Exercise2RecordApplicationEventsTest.java`
-2. In the `shouldPublishBookCreatedEventWhenCreatingBook` test:
-   - Create a `BookCreationRequest` with ISBN `"978-0201633610"` (pre-stubbed in WireMock)
-   - Call `bookService.createBook(request)`
-   - Assert that exactly one `BookCreatedEvent` was published
-   - Assert the event's `isbn`, `title`, and `bookId` fields
-3. Run `./mvnw test -Dtest=Exercise2RecordApplicationEventsTest`
-
-**Key APIs:**
-- `events.stream(BookCreatedEvent.class).count()` — count events
-- `events.stream(BookCreatedEvent.class).findFirst().orElseThrow()` — get the event
-
-**Solution:** `solutions/Solution2RecordApplicationEventsTest.java`

@@ -1,0 +1,2 @@
+org.springframework.test.context.ContextCustomizerFactory=\
+pragmatech.digital.workshops.lab5.experiment.customizer.SharedInfrastructureCustomizerFactory

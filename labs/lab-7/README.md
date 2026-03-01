@@ -1,14 +1,17 @@
-# Lab 7: Test Parallelization and Spring Boot Testing Best Practices
+# Lab 7: Test Parallelization and Test Isolation
 
-## Overview
+## Learning Objectives
 
-This lab explores how to speed up your test suite using JUnit 5 parallel execution, Maven Surefire fork configuration, and best practices for maintaining test isolation. You will also learn about mutation testing with PIT to measure the quality of your tests.
+- Configure JUnit 5 parallel test execution via `junit-platform.properties`
+- Understand the difference between JUnit 5 thread-level parallelism and Maven Surefire `forkCount` process-level forking
+- Identify and fix test isolation issues caused by shared database state
+- Apply `@Transactional` and UUID-based unique data as complementary isolation strategies
 
 ## Key Concepts
 
 ### JUnit 5 Parallel Execution
 
-JUnit 5 supports running tests in parallel at both the class level and the method level. Configuration is done via `junit-platform.properties` or Maven Surefire plugin settings.
+JUnit 5 supports running tests in parallel at both the class level and the method level. Configuration lives in `src/test/resources/junit-platform.properties`.
 
 There are two independent axes of parallelism:
 
@@ -21,9 +24,9 @@ There are two independent axes of parallelism:
 
 The recommended starting point is **classes concurrent, methods same_thread**. This gives you parallelism benefits while keeping method-level execution simple and predictable.
 
-### Maven Surefire forkCount
+### Maven Surefire `forkCount`
 
-The `forkCount` setting in the maven-surefire-plugin controls how many **separate JVM processes** are spawned to run tests. This is different from JUnit 5 parallel execution, which uses **threads within a single JVM**.
+The `forkCount` setting in `maven-surefire-plugin` controls how many **separate JVM processes** are spawned to run tests. This is different from JUnit 5 parallel execution, which uses **threads within a single JVM**.
 
 ```
 forkCount=1 (default): All tests run in one JVM
@@ -32,228 +35,125 @@ forkCount=0:           Tests run in the Maven process itself (not recommended)
 ```
 
 These two mechanisms are complementary:
-- **forkCount** provides process-level isolation (separate heaps, class loaders)
+- **`forkCount`** provides process-level isolation (separate heaps, class loaders)
 - **JUnit 5 parallel** provides thread-level concurrency within each fork
 
-### Test Isolation Patterns
+### Test Isolation Strategies
 
 When running tests in parallel, shared mutable state causes failures. The three main isolation strategies are:
 
-1. **@Transactional** - Wraps each test in a transaction that rolls back after the test. Other tests never see the data. This is the most effective approach for database tests.
-
-2. **Unique test data** - Generate unique identifiers (e.g., UUID-based ISBNs) so tests never collide on unique constraints. Essential as a defense-in-depth measure.
-
-3. **@Sql setup/cleanup** - Use SQL scripts to set up and tear down test data explicitly. Useful when @Transactional is not applicable (e.g., testing transaction boundaries).
-
-### Mutation Testing with PIT
-
-PIT (PITest) mutates your production code and re-runs your tests to check if they catch the mutations. If a test suite still passes after a mutation, that mutation "survived" -- indicating a gap in your test coverage.
-
-Common mutation types:
-- **Conditionals boundary**: changes `<` to `<=`, `>` to `>=`
-- **Negate conditionals**: changes `==` to `!=`
-- **Remove conditionals**: replaces conditionals with `true` or `false`
-- **Return values**: changes return values (e.g., `return 0` to `return 1`)
+1. **`@Transactional`** — Wraps each test in a transaction that rolls back after the test. Other tests never see the data. This is the most effective approach for database tests.
+2. **Unique test data** — Generate unique identifiers (e.g., UUID-based ISBNs) so tests never collide on unique constraints. Essential as a defense-in-depth measure.
+3. **`@Sql` setup/cleanup** — Use SQL scripts to set up and tear down test data explicitly. Useful when `@Transactional` is not applicable (e.g., testing transaction boundaries).
 
 ## Project Structure
 
 ```
-src/
-  main/java/pragmatech/digital/workshops/lab7/
-    service/
-      BookService.java          -- existing book CRUD service
-      DiscountService.java      -- NEW: discount calculation logic
-    entity/
-      Book.java                 -- JPA entity
-      BookStatus.java           -- status enum
-    ...
-  test/java/pragmatech/digital/workshops/lab7/
-    exercises/
-      Exercise1ParallelExecutionTest.java   -- observe parallel execution
-      Exercise2TestIsolationTest.java       -- fix isolation issues
-    solutions/
-      Solution1ParallelExecutionTest.java   -- parallel execution solution
-      Solution2TestIsolationTest.java       -- test isolation solution
-    experiment/
-      DiscountServiceTest.java              -- unit tests + mutation testing target
-      ParallelDatabaseAccessTest.java       -- demonstrates DB isolation
-    config/
-      WireMockContextInitializer.java       -- WireMock setup for integration tests
-      OpenLibraryApiStub.java               -- WireMock stubs
-      PostgresTestcontainer.java            -- Testcontainers config
-    LocalDevTestcontainerConfig.java        -- shared Testcontainers config
-    Lab7ApplicationIT.java                  -- application context smoke test
-  test/resources/
-    junit-platform.properties               -- JUnit 5 parallel execution config
-    __files/                                -- WireMock response files
-    init-postgres.sql                       -- PostgreSQL init script
-    logback-test.xml                        -- test logging config
+src/test/java/pragmatech/digital/workshops/lab7/
+  exercises/
+    Exercise1ParallelExecutionTest.java   -- observe parallel execution (TODO stubs)
+    Exercise2TestIsolationTest.java       -- fix isolation issues (TODO stubs)
+  solutions/
+    Solution1ParallelExecutionTest.java
+    Solution2TestIsolationTest.java
+  config/
+    WireMockContextInitializer.java
+    OpenLibraryApiStub.java
+    PostgresTestcontainer.java
+  LocalDevTestcontainerConfig.java
+  Lab7ApplicationIT.java
+src/test/resources/
+  junit-platform.properties              -- JUnit 5 parallel execution config
+  logback-test.xml
 ```
 
 ## Exercises
 
-### Exercise 3: Write a Reusable JUnit 5 Testcontainers Extension
-
-**Goal:** Build a reusable JUnit 5 extension that manages a singleton PostgreSQL Testcontainer.
-
-This teaches the JUnit extension approach as an alternative to Spring Boot's `@ServiceConnection` + `@TestConfiguration` pattern. The extension approach works at a lower level and is framework-agnostic.
-
-**Steps:**
-1. Create class `SharedPostgresContainerExtension` implementing `org.junit.jupiter.api.extension.BeforeAllCallback`
-2. Declare a `private static final PostgreSQLContainer<?> POSTGRES` field — this is the singleton
-3. In a `static {}` initializer block, create and start the container, and register a `Runtime.getRuntime().addShutdownHook(...)` to stop it
-4. In `beforeAll(ExtensionContext context)`, call `System.setProperty(...)` to configure Spring's datasource:
-   - `spring.datasource.url` → `container.getJdbcUrl()`
-   - `spring.datasource.username` → `container.getUsername()`
-   - `spring.datasource.password` → `container.getPassword()`
-5. Add `@ExtendWith(SharedPostgresContainerExtension.class)` to `Exercise3ReusableExtensionTest`
-6. Remove `@Import(LocalDevTestcontainerConfig.class)` from that test class — the extension replaces it
-7. Run the test and verify it passes
-
-**Why does `System.setProperty` work?** JUnit's `BeforeAllCallback` runs before `@SpringBootTest` initializes the application context. Spring reads system properties during context startup, so the datasource URL is picked up correctly.
-
-**File:** `exercises/Exercise3ReusableExtensionTest.java`
-**Solution:** `solutions/SharedPostgresContainerExtension.java` + `solutions/Solution3ReusableExtensionTest.java`
-
----
-
 ### Exercise 1: Configure and Observe Parallel Test Execution
 
-**Goal:** Understand JUnit 5 parallel execution configuration and observe its effect.
+Understand JUnit 5 parallel execution configuration and observe its effect on thread allocation.
 
-**Steps:**
-1. Open `src/test/resources/junit-platform.properties` and review the settings
-2. Run `mvn test` and observe thread names in the console output
-3. Try different parallelism strategies by modifying the properties file:
-   - Classes concurrent, methods same_thread (current default)
-   - Both classes and methods concurrent
-   - Parallel execution fully disabled
-4. Compare build times for each configuration
-5. Note which tests break with aggressive parallelism and why
+**Tasks:**
+1. Open `src/test/resources/junit-platform.properties` and review the current settings
+2. Open `Exercise1ParallelExecutionTest.java` — the test methods print the current thread name
+3. Run `mvn test` and observe which threads each test class runs on in the console output
+4. Try different parallelism strategies by modifying `junit-platform.properties`:
+   - Classes concurrent, methods `same_thread` (current default)
+   - Both classes and methods `concurrent`
+   - Parallel execution fully disabled (`parallel.enabled = false`)
+5. Compare build times for each configuration
+6. In the test class, understand why `forkCount=2` in `pom.xml` complements JUnit 5 parallelism
 
 **File:** `exercises/Exercise1ParallelExecutionTest.java`
 **Solution:** `solutions/Solution1ParallelExecutionTest.java`
 
-### Exercise 2: Fix Test Isolation Issues
+---
 
-**Goal:** Apply isolation strategies so all tests pass reliably under parallel execution.
+### Exercise 2: Fix Test Isolation Issues for Parallel Execution
 
-**Steps:**
-1. Review the test class and identify potential isolation issues
-2. Apply `@Transactional` for automatic rollback
-3. Use UUID-based ISBNs to avoid unique constraint collisions
-4. Write tests that insert, retrieve, and delete books without interfering with each other
+Apply isolation strategies so tests pass reliably when running concurrently against a shared database.
+
+**Tasks:**
+1. Open `Exercise2TestIsolationTest.java` — it has `MockMvc` and `BookRepository` injected
+2. Implement `shouldCreateBookWithIsolatedData`:
+   - Generate a unique ISBN using `UUID.randomUUID().toString().substring(0, 13)`
+   - Insert a `Book` via `BookRepository` and assert it was saved
+   - Add `@Transactional` at the class level for automatic rollback
+3. Implement `shouldRetrieveBookWithoutSideEffects`:
+   - Insert a book directly, then retrieve it via `GET /api/books/{id}` using MockMvc
+   - Assert the response fields with `jsonPath`
+4. Implement `shouldDeleteBookSafely`:
+   - Insert a book, delete it via `DELETE /api/books/{id}`, assert it no longer exists
 5. Run `mvn test` and verify all tests pass consistently
+
+**Tips:**
+- `@Transactional` on the test class rolls back after every method — no `@AfterEach` needed
+- `UUID.randomUUID().toString().substring(0, 13)` produces a valid-length unique ISBN
+- Use `@WithMockUser(roles = "USER")` for GET, `@WithMockUser(roles = "ADMIN")` for DELETE
 
 **File:** `exercises/Exercise2TestIsolationTest.java`
 **Solution:** `solutions/Solution2TestIsolationTest.java`
 
-## Experiments
+## How to Run
 
-### Experiment: DiscountService Unit Tests and Mutation Testing
-
-**Goal:** Write thorough unit tests and validate them with PIT mutation testing.
-
-**Steps:**
-1. Review `experiment/DiscountServiceTest.java` to understand the test coverage
-2. Run the tests: `mvn test -Dtest=DiscountServiceTest`
-3. Run PIT mutation testing: `mvn pitest:mutate`
-4. Open the PIT report at `target/pit-reports/index.html`
-5. Check which mutants survived and consider adding tests to kill them
-6. Aim for 100% mutation coverage
-
-**File:** `experiment/DiscountServiceTest.java`
-
-### Experiment: Parallel Database Access Challenges
-
-**Goal:** Observe and fix database isolation issues in parallel tests.
-
-**Steps:**
-1. Review `experiment/ParallelDatabaseAccessTest.java`
-2. Try removing `@Transactional` and using hardcoded ISBNs -- observe failures
-3. Add back `@Transactional` and/or UUID-based ISBNs -- observe passing tests
-4. Understand why `@Transactional` provides stronger isolation than unique data alone
-
-**File:** `experiment/ParallelDatabaseAccessTest.java`
-
-## Running the Lab
-
-### Run all unit tests (with parallel execution)
 ```bash
+# Run all lab-7 tests (parallel execution enabled)
 mvn test
-```
 
-### Run integration tests
-```bash
-mvn verify
-```
+# Run a specific exercise
+mvn test -Dtest=Exercise1ParallelExecutionTest
+mvn test -Dtest=Exercise2TestIsolationTest
 
-### Run mutation testing
-```bash
-mvn pitest:mutate
-```
-
-### Run a specific test class
-```bash
-mvn test -Dtest=DiscountServiceTest
+# Run solutions
 mvn test -Dtest=Solution1ParallelExecutionTest
-```
+mvn test -Dtest=Solution2TestIsolationTest
 
-### Disable parallel execution temporarily
-```bash
+# Temporarily disable parallel execution
 mvn test -Djunit.jupiter.execution.parallel.enabled=false
 ```
 
 ## Configuration Reference
 
-### junit-platform.properties
+### `junit-platform.properties`
 ```properties
 junit.jupiter.execution.parallel.enabled = true
 junit.jupiter.execution.parallel.mode.default = same_thread
 junit.jupiter.execution.parallel.mode.classes.default = concurrent
 ```
 
-### maven-surefire-plugin (pom.xml)
+### `maven-surefire-plugin` in `pom.xml`
 ```xml
 <configuration>
     <forkCount>2</forkCount>
-    <properties>
-        <configurationParameters>
-            junit.jupiter.execution.parallel.enabled = true
-            junit.jupiter.execution.parallel.mode.default = same_thread
-            junit.jupiter.execution.parallel.mode.classes.default = concurrent
-        </configurationParameters>
-    </properties>
 </configuration>
-```
-
-### PIT mutation testing plugin (pom.xml)
-```xml
-<plugin>
-    <groupId>org.pitest</groupId>
-    <artifactId>pitest-maven</artifactId>
-    <configuration>
-        <targetClasses>
-            <param>pragmatech.digital.workshops.lab7.service.DiscountService</param>
-        </targetClasses>
-        <targetTests>
-            <param>pragmatech.digital.workshops.lab7.experiment.DiscountServiceTest</param>
-        </targetTests>
-        <mutators>
-            <mutator>DEFAULTS</mutator>
-            <mutator>REMOVE_CONDITIONALS</mutator>
-        </mutators>
-    </configuration>
-</plugin>
 ```
 
 ## Best Practices Summary
 
-1. **Start with class-level parallelism** -- it is the safest entry point and often provides the biggest speedup.
-2. **Always use @Transactional** for Spring Boot integration tests that modify the database.
-3. **Generate unique test data** with UUIDs as a defense-in-depth measure against data collisions.
-4. **Use @Execution annotations** to opt individual test classes in or out of parallel execution.
-5. **Measure before optimizing** -- compare build times with and without parallelism to quantify the benefit.
-6. **Run mutation testing** periodically to validate that your tests actually catch regressions.
-7. **Combine forkCount with JUnit 5 parallel execution** for maximum throughput on CI servers.
-8. **Avoid shared mutable state** in test classes -- no static fields, no shared test fixtures that mutate.
+1. **Start with class-level parallelism** — it is the safest entry point and usually provides the biggest speedup
+2. **Always use `@Transactional`** for Spring Boot integration tests that modify the database
+3. **Generate unique test data** with UUIDs as a defense-in-depth measure against constraint collisions
+4. **Use `@Execution` annotations** to opt individual test classes in or out of parallel execution
+5. **Measure before optimizing** — compare build times with and without parallelism to quantify the benefit
+6. **Combine `forkCount` with JUnit 5 parallel execution** for maximum throughput on CI servers
+7. **Avoid shared mutable state** in test classes — no static fields that tests write to

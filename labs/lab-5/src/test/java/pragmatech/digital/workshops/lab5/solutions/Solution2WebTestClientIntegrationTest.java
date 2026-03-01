@@ -1,9 +1,9 @@
 package pragmatech.digital.workshops.lab5.solutions;
 
 import java.net.URI;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,9 +12,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.transaction.annotation.Transactional;
 import pragmatech.digital.workshops.lab5.LocalDevTestcontainerConfig;
 import pragmatech.digital.workshops.lab5.config.OpenLibraryApiStub;
 import pragmatech.digital.workshops.lab5.config.WireMockContextInitializer;
+import pragmatech.digital.workshops.lab5.entity.Book;
 import pragmatech.digital.workshops.lab5.repository.BookRepository;
 
 /**
@@ -49,20 +51,15 @@ class Solution2WebTestClientIntegrationTest {
 
   private static final String VALID_ISBN = "978-0134757599";
 
-  @BeforeEach
-  void setUp() {
-    // Register a WireMock stub for the dashed ISBN format.
-    openLibraryApiStub.stubForSuccessfulBookResponse(VALID_ISBN);
-  }
-
   @AfterEach
   void cleanUp() {
     // WebTestClient commits transactions in the server thread, so we must
     // clean up manually. Without this, data would persist across tests.
-    bookRepository.deleteAll();
+    this.bookRepository.deleteAll();
   }
 
   @Test
+  @Transactional
   void shouldCreateAndRetrieveBookWhenUsingWebTestClient() {
     // Arrange
     String requestBody = """
@@ -73,6 +70,8 @@ class Solution2WebTestClientIntegrationTest {
         "publishedDate": "2018-01-06"
       }
       """.formatted(VALID_ISBN);
+
+    openLibraryApiStub.stubForSuccessfulBookResponse(VALID_ISBN);
 
     // Act - Create a book using POST with Basic Auth
     URI locationUri = webTestClient.post()
@@ -109,20 +108,26 @@ class Solution2WebTestClientIntegrationTest {
   @Test
   void shouldReturnAllBooksWhenUsingWebTestClient() {
     // GET /api/books is publicly accessible (permitAll)
-    webTestClient.get()
+
+    // this won't work when we use @Trannsactional because the test transaction is separate from the server thread's transaction.
+    this.bookRepository.save(new Book("123-1234567890", "Book One", "Author A", LocalDate.now()));
+    this.bookRepository.save(new Book("456-1234567890", "Book Two", "Author B", LocalDate.now()));
+
+    this.webTestClient.get()
       .uri("/api/books")
       .accept(MediaType.APPLICATION_JSON)
       .exchange()
       .expectStatus().isOk()
       .expectBody()
-      .jsonPath("$").isArray();
+      .jsonPath("$").isArray()
+      .jsonPath("$.size()").isEqualTo(2);
   }
 
   @Test
   void shouldRejectUnauthorizedAccessToProtectedEndpoint() {
     // GET /api/books/{id} requires USER role
     // Without credentials, the server should return 401
-    webTestClient.get()
+    this.webTestClient.get()
       .uri("/api/books/1")
       .accept(MediaType.APPLICATION_JSON)
       .exchange()

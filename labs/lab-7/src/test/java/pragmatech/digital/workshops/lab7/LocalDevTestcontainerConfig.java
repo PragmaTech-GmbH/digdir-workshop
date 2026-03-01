@@ -15,7 +15,7 @@ public class LocalDevTestcontainerConfig {
       .withDatabaseName("testdb")
       .withUsername("test")
       .withPassword("test")
+      .withReuse(false)
       .withInitScript("init-postgres.sql"); // Initialize PostgreSQL with required extensions
   }
-
 }

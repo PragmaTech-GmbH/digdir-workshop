@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import pragmatech.digital.workshops.lab5.client.OpenLibraryApiClient;
 import pragmatech.digital.workshops.lab5.dto.BookCreationRequest;
 import pragmatech.digital.workshops.lab5.dto.BookMetadataResponse;
@@ -15,9 +16,8 @@ import pragmatech.digital.workshops.lab5.exception.BookAlreadyExistsException;
 import pragmatech.digital.workshops.lab5.repository.BookRepository;
 
 @Service
+@Transactional
 public class BookService {
-
-  private static final Logger logger = LoggerFactory.getLogger(BookService.class);
 
   private final BookRepository bookRepository;
   private final OpenLibraryApiClient openLibraryApiClient;

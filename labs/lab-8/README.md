@@ -1,179 +1,222 @@
-# Lab 8: General FAQ and Customer Specific Issues
+# Lab 8: Spring Boot Testing Grab Bag
 
-This lab covers practical topics that frequently come up in real-world Spring Boot testing projects: GitHub Actions pipeline best practices, Maven tips for faster builds, and test organization using JUnit 5 `@Tag` with Maven profiles.
+This lab covers a collection of practical techniques that frequently come up in real-world Spring Boot projects: architecture testing with ArchUnit, verifying application events, capturing output and container logs, testing conditional auto-configuration, and email testing with GreenMail.
 
 ## Learning Objectives
 
-- Configure GitHub Actions workflows with caching, timeouts, and artifact uploads
-- Organize tests using `@Tag` annotations and Maven profiles
-- Understand parallel test execution with JUnit 5
-- Learn Maven tips for faster local and CI builds
+- Write ArchUnit rules to enforce layered architecture constraints
+- Use `@RecordApplicationEvents` to assert that Spring application events are published
+- Capture console and log output in tests with `OutputCaptureExtension`
+- Test `@Conditional` beans without starting a full Spring context using `ApplicationContextRunner`
+- Capture Testcontainers logs with `Slf4jLogConsumer`
+- Test email sending with the GreenMail in-process SMTP server
 
-## Prerequisites
-
-- Completed Labs 1-7 (or equivalent Spring Boot testing knowledge)
-- Basic familiarity with YAML and CI/CD concepts
-
-## Lab Structure
+## Project Structure
 
 ```
-lab-8/
-  .github/workflows/
-    build.yml              # Basic GHA workflow (enhance in Exercise 1)
-    nightly.yml            # Nightly build workflow example
-  src/test/java/.../
-    exercises/
-      Exercise1GithubActionsWorkflow.java
-      Exercise2MavenBestPractices.java
-    solutions/
-      Solution1GithubActionsWorkflow.java
-      Solution2MavenBestPractices.java
-    experiment/
-      TestCategorization.java        # @Tag("unit") demo
-      NightlyBuildDemoIT.java        # @Tag("nightly") demo
-  src/test/resources/
-    junit-platform.properties        # Parallel execution config
-  pom.xml                            # Maven profiles for test filtering
+src/test/java/pragmatech/digital/workshops/lab8/
+  exercises/
+    Exercise1ArchUnitTest.java                  -- ArchUnit exercise (TODO stubs)
+    Exercise2RecordApplicationEventsTest.java   -- @RecordApplicationEvents exercise (TODO stub)
+    Exercise1GithubActionsWorkflow.java         -- GitHub Actions CI configuration exercise
+    Exercise2MavenBestPractices.java            -- Maven test profiles exercise
+  solutions/
+    Solution1ArchUnitTest.java
+    Solution2RecordApplicationEventsTest.java
+    Solution1GithubActionsWorkflow.java
+    Solution2MavenBestPractices.java
+  config/
+    WireMockContextInitializer.java
+    OpenLibraryApiStub.java
+    PostgresTestcontainer.java
+  LocalDevTestcontainerConfig.java
+  Lab8ApplicationIT.java
+src/test/resources/
+  junit-platform.properties
+  logback-test.xml
+.github/workflows/
+  build.yml          -- basic CI workflow (starting point for the GHA exercise)
+  nightly.yml        -- nightly build workflow example
 ```
 
-## Exercise 1: Optimize GitHub Actions Workflow
+## Exercises
 
-Review and enhance the sample `.github/workflows/build.yml` file with CI/CD best practices.
+### Exercise 1: Enforce Architecture Rules with ArchUnit
 
-### Tasks
+Write ArchUnit rules that verify the layered architecture of the application is respected.
 
+**Background:** ArchUnit statically analyses compiled bytecode and fails the test if any rule is violated — no application context is started.
+
+**Tasks:**
+1. Open `Exercise1ArchUnitTest.java` in the `exercises` package
+2. Replace the `controllersShouldNotAccessRepositories` placeholder with a real rule:
+   - Classes in the `controller` package (excluding `ThreadController`) must not access the `repository` package
+   - Use `noClasses().that().resideInAPackage("..controller..").and().doNotHaveSimpleName("ThreadController")`
+3. Replace the `layeredArchitectureRuleShouldBeRespected` placeholder with a `layeredArchitecture()` rule:
+   - Define three layers: `Controller → Service → Repository`
+   - Use `.ignoreDependency(ThreadController.class, BookRepository.class)` to exempt the known violation
+
+**Tips:**
+- `@AnalyzeClasses` with `ImportOption.DoNotIncludeTests.class` scans only production code
+- `@ArchTest` on `static final ArchRule` fields is picked up automatically by the JUnit 5 ArchUnit extension
+- `ThreadController` intentionally bypasses the service layer — always exclude it explicitly
+
+**File:** `exercises/Exercise1ArchUnitTest.java`
+**Solution:** `solutions/Solution1ArchUnitTest.java`
+
+---
+
+### Exercise 2: Verify Application Events with `@RecordApplicationEvents`
+
+Assert that `BookCreatedEvent` is published when a book is created via `BookService`.
+
+**Background:** `@RecordApplicationEvents` captures all `ApplicationEvent`s published during a test. The recorded events are exposed via an injected `ApplicationEvents` field.
+
+**Tasks:**
+1. Open `Exercise2RecordApplicationEventsTest.java` in the `exercises` package
+2. Implement `shouldPublishBookCreatedEventWhenCreatingBook`:
+   - Create a `BookCreationRequest` with ISBN `"978-0201633610"`, a title, an author, and a past date
+   - Call `bookService.createBook(request)`
+   - Assert that exactly one `BookCreatedEvent` was published using `events.stream(BookCreatedEvent.class)`
+   - Assert the `isbn`, `title`, and `bookId` fields of the published event
+
+**Tips:**
+- `ApplicationEvents` must be injected as a field (not via constructor) in the test class
+- Use `events.stream(BookCreatedEvent.class).count()` to check how many events were published
+- Use `.findFirst().orElseThrow()` to retrieve the event and inspect its fields
+
+**File:** `exercises/Exercise2RecordApplicationEventsTest.java`
+**Solution:** `solutions/Solution2RecordApplicationEventsTest.java`
+
+---
+
+### Exercise 3: Optimize GitHub Actions Workflow
+
+Review and enhance `.github/workflows/build.yml` with CI/CD best practices. No Java code required.
+
+**Tasks:**
 1. Open `.github/workflows/build.yml` and identify what is missing
 2. Add Maven dependency caching using `setup-java`'s built-in `cache: maven`
 3. Add `timeout-minutes` to prevent runaway builds
 4. Add a step to upload test reports on failure using `actions/upload-artifact@v4`
-5. Review `.github/workflows/nightly.yml` for scheduled build patterns
+5. Review `.github/workflows/nightly.yml` for scheduled build and tag-filtering patterns
 
-### Key Concepts
+**File:** `exercises/Exercise1GithubActionsWorkflow.java` (guidance comments only)
+**Solution:** `solutions/Solution1GithubActionsWorkflow.java`
 
-**Maven Caching** reduces build times significantly by caching the `~/.m2/repository` directory between workflow runs. Without caching, every build downloads all dependencies from scratch.
+---
 
-**Timeout** prevents stuck builds from consuming CI/CD minutes. The GitHub Actions default is 6 hours, which is far too long for most builds.
+### Exercise 4: Test Organization with `@Tag` and Maven Profiles
 
-**Artifact Upload** on failure ensures that test reports (Surefire/Failsafe XML and HTML) are available for debugging without re-running tests locally.
+Learn how to categorize tests and run subsets selectively.
 
-## Exercise 2: Test Organization with @Tag and Maven Profiles
+**Tasks:**
+1. Open `pom.xml` and review the `unit-tests` and `integration-tests` Maven profiles
+2. Run only unit-tagged tests: `mvn test -Punit-tests`
+3. Run only nightly-tagged tests: `mvn verify -Dgroups=nightly`
+4. Compare execution times between selective and full runs
 
-Learn how to categorize tests and run them selectively using JUnit 5 tags and Maven profiles.
-
-### Tasks
-
-1. Review `@Tag("unit")` on `TestCategorization.java`
-2. Review `@Tag("nightly")` on `NightlyBuildDemoIT.java`
-3. Run only unit-tagged tests: `./mvnw test -Punit-tests`
-4. Run only nightly-tagged tests: `./mvnw verify -Dgroups=nightly`
-5. Compare execution times
-
-### Maven Commands
-
+**Maven commands:**
 ```bash
-# Run all tests (default behavior)
-./mvnw verify
+# Run all tests (default)
+mvn verify
 
-# Run only unit-tagged tests (fast feedback loop)
-./mvnw test -Punit-tests
+# Run only unit-tagged tests (fast feedback)
+mvn test -Punit-tests
 
 # Run only integration-tagged tests
-./mvnw verify -Pintegration-tests
+mvn verify -Pintegration-tests
 
-# Run tests with a specific tag directly (without profiles)
-./mvnw test -Dgroups=unit
-./mvnw verify -Dgroups=nightly
+# Run tests by tag directly (without profiles)
+mvn test -Dgroups=unit
+mvn verify -Dgroups=nightly
 
-# Exclude specific tags (e.g., skip slow nightly tests in PR builds)
-./mvnw verify -DexcludedGroups=nightly
+# Exclude specific tags (e.g., skip slow tests in PR builds)
+mvn verify -DexcludedGroups=nightly
 ```
 
-### Maven Profiles in pom.xml
+**File:** `exercises/Exercise2MavenBestPractices.java` (guidance comments only)
+**Solution:** `solutions/Solution2MavenBestPractices.java`
 
-The `pom.xml` includes two profiles:
+## Key Concepts
 
-- **unit-tests** -- Configures `maven-surefire-plugin` with `<groups>unit</groups>`
-- **integration-tests** -- Configures `maven-failsafe-plugin` with `<groups>integration</groups>`
+### ArchUnit
 
-## Parallel Test Execution
+ArchUnit checks architectural constraints at the bytecode level without starting a Spring context. Rules are expressed in a fluent Java DSL and run as regular JUnit 5 tests via the `@ArchTest` annotation.
 
-The `junit-platform.properties` file enables class-level parallel execution:
-
-```properties
-junit.jupiter.execution.parallel.enabled = true
-junit.jupiter.execution.parallel.mode.default = same_thread
-junit.jupiter.execution.parallel.mode.classes.default = concurrent
-```
-
-This means:
-- **Within a class**: Tests run sequentially (safe for shared state)
-- **Across classes**: Test classes run in parallel (faster overall execution)
-
-To opt a specific class out of parallel execution, use:
 ```java
-@Execution(ExecutionMode.SAME_THREAD)
-class MySequentialTest { ... }
+@AnalyzeClasses(packages = "com.example", importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchitectureTest {
+
+    @ArchTest
+    static final ArchRule controllersShouldNotAccessRepositories = noClasses()
+        .that().resideInAPackage("..controller..")
+        .should().accessClassesThat().resideInAPackage("..repository..");
+}
 ```
 
-## Maven Tips for Faster Builds
+### `@RecordApplicationEvents`
 
-### Maven Daemon (mvnd)
+`@RecordApplicationEvents` tells Spring's test framework to record all `ApplicationEvent`s published during a test. The events are available via an `ApplicationEvents` field injected into the test class.
 
-[Maven Daemon](https://github.com/apache/maven-mvnd) keeps a long-running daemon process to avoid JVM startup overhead:
+```java
+@SpringBootTest
+@RecordApplicationEvents
+class BookServiceTest {
 
-```bash
-# Install via Homebrew (macOS)
-brew install mvndaemon/homebrew-mvnd/mvnd
+    @Autowired
+    ApplicationEvents events;
 
-# Use mvnd instead of mvn/mvnw
-mvnd verify
-mvnd test -Punit-tests
+    @Test
+    void shouldPublishEvent() {
+        bookService.createBook(request);
+
+        assertThat(events.stream(BookCreatedEvent.class)).hasSize(1);
+    }
+}
 ```
 
-Benefits:
-- Reuses a warm JVM (no cold start)
-- Parallel module builds by default
-- Typically 2-3x faster for multi-module projects
+### `ApplicationContextRunner`
 
-### Skip Tests Selectively
+`ApplicationContextRunner` allows testing Spring auto-configuration and `@Conditional` beans without starting a full application context. It is fast and lightweight — ideal for testing configuration classes in isolation.
 
-```bash
-# Skip all tests
-./mvnw package -DskipTests
+```java
+private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+    .withUserConfiguration(ConditionalBookImportConfig.class);
 
-# Skip only integration tests (Failsafe)
-./mvnw verify -DskipITs
-
-# Skip only unit tests (Surefire) but run integration tests
-./mvnw verify -Dsurefire.skip=true
+@Test
+void shouldHaveBeanWhenPropertyEnabled() {
+    contextRunner
+        .withPropertyValues("bookshelf.import.enabled=true")
+        .run(context -> assertThat(context).hasSingleBean(String.class));
+}
 ```
 
-### Offline Mode
+### GreenMail
 
-```bash
-# After initial download, build offline for speed
-./mvnw verify -o
-```
+GreenMail provides an in-process SMTP server for testing email sending. Register it as a JUnit 5 extension with `@RegisterExtension` and assert on received messages after exercising the production code.
 
-## CI/CD Strategy Summary
+## CI/CD Strategy Reference
 
 | Build Type    | Command                                  | When                 |
 |---------------|------------------------------------------|----------------------|
-| PR Build      | `./mvnw verify -DexcludedGroups=nightly` | Every pull request   |
-| Merge to Main | `./mvnw verify`                          | Push to main branch  |
-| Nightly       | `./mvnw verify -Dgroups=nightly`         | Scheduled (cron)     |
+| PR Build      | `mvn verify -DexcludedGroups=nightly`    | Every pull request   |
+| Merge to Main | `mvn verify`                             | Push to main branch  |
+| Nightly       | `mvn verify -Dgroups=nightly`            | Scheduled (cron)     |
 
-## Sample GitHub Actions Workflows
+## How to Run
 
-The `.github/workflows/` directory contains two sample workflows:
+```bash
+# Run all lab-8 tests
+mvn test -pl labs/lab-8
 
-- **build.yml** -- A basic CI workflow (starting point for Exercise 1)
-- **nightly.yml** -- A scheduled nightly build with tag filtering and artifact upload
+# Run ArchUnit exercise
+mvn test -pl labs/lab-8 -Dtest="Exercise1ArchUnitTest"
 
-## Further Resources
+# Run @RecordApplicationEvents exercise
+mvn test -pl labs/lab-8 -Dtest="Exercise2RecordApplicationEventsTest"
 
-- [JUnit 5 User Guide -- Tagging and Filtering](https://junit.org/junit5/docs/current/user-guide/#writing-tests-tagging-and-filtering)
-- [Maven Surefire Plugin -- Filtering by Tags](https://maven.apache.org/surefire/maven-surefire-plugin/examples/junit-platform.html)
-- [GitHub Actions -- Caching Dependencies](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows)
-- [Maven Daemon (mvnd)](https://github.com/apache/maven-mvnd)
-- [JUnit 5 Parallel Execution](https://junit.org/junit5/docs/current/user-guide/#writing-tests-parallel-execution)
+# Run solutions
+mvn test -pl labs/lab-8 -Dtest="Solution1ArchUnitTest"
+mvn test -pl labs/lab-8 -Dtest="Solution2RecordApplicationEventsTest"
+```

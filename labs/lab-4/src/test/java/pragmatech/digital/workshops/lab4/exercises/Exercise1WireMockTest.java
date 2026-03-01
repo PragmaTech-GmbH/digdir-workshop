@@ -1,53 +1,59 @@
 package pragmatech.digital.workshops.lab4.exercises;
 
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.web.reactive.function.client.WebClient;
+import pragmatech.digital.workshops.lab4.client.OpenLibraryApiClient;
+
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 /**
- * Exercise 1: Testing the OpenLibraryApiClient with WireMock
- * <p>
- * In this exercise, you will test the OpenLibraryApiClient using WireMock without Spring context.
- * <p>
- * Tasks:
- * 1. Create tests to verify successful API calls (status code 200)
- * 2. Create tests to verify error handling (status code 500)
- * 3. Optional: Modify the OpenLibraryApiClient implementation to handle 404 responses
- * by returning null instead of throwing an exception
- * <p>
+ * Exercise 1: Testing HTTP Clients with WireMock
+ *
+ * Your tasks:
+ * 1. Implement shouldReturnBookMetadataWhenApiReturnsSuccessResponse:
+ *    - Stub WireMock to return a 200 response with body from "__files/9780132350884-success.json"
+ *    - Call cut.getBookByIsbn("9780132350884")
+ *    - Assert the title is "Clean Code", publisher is "Prentice Hall", pages is 431
+ *
+ * 2. Implement shouldThrowExceptionWhenServerReturnsInternalError:
+ *    - Stub WireMock to return a 500 response
+ *    - Assert that calling cut.getBookByIsbn(...) throws WebClientResponseException.InternalServerError
+ *
+ * Optional:
+ * 3. Handle 404 responses gracefully by returning null instead of throwing.
+ *    Add a test shouldReturnNullWhenBookNotFound and modify OpenLibraryApiClient accordingly.
+ *
  * Hints:
- * - You can use the WireMock JUnit 5 extension (@RegisterExtension)
- * or bootstrap the WireMock server manually
- * - Use WebClient.builder() to create a WebClient instance that points to your WireMock server
- * - Check the __files directory in test resources for sample response JSON files
- * - To modify the client for 404 handling, you'll need to use .onStatus() in the WebClient call
+ * - Use wireMockServer.stubFor(get(urlPathEqualTo("/api/books")).willReturn(...))
+ * - Use aResponse().withHeader(...).withBodyFile(...) for successful responses
+ * - Use assertThatThrownBy(...).isInstanceOf(...) for exception assertions
+ * - Check Solution1WireMockTest.java if you get stuck
  */
-public class Exercise1WireMockTest {
+class Exercise1WireMockTest {
 
-  @Test
-  void shouldReturnBookMetadataWhenApiReturnsValidResponse() {
-    // TODO:
-    // 1. Set up WireMock server (using extension or manually)
-    // 2. Configure WebClient to point to WireMock
-    // 3. Create OpenLibraryApiClient with the WebClient
-    // 4. Stub a successful response for a specific ISBN
-    // 5. Call the client and verify the response
+  @RegisterExtension
+  static WireMockExtension wireMockServer = WireMockExtension.newInstance()
+    .options(wireMockConfig().dynamicPort())
+    .build();
+
+  private OpenLibraryApiClient cut;
+
+  @BeforeEach
+  void setUp() {
+    cut = new OpenLibraryApiClient(
+      WebClient.builder().baseUrl(wireMockServer.baseUrl()).build());
   }
 
   @Test
-  void shouldHandleServerErrorWhenApiReturns500() {
-    // TODO:
-    // 1. Set up WireMock server
-    // 2. Configure WebClient and OpenLibraryApiClient
-    // 3. Stub a 500 response for a specific ISBN
-    // 4. Call the client and verify that the expected exception is thrown
+  void shouldReturnBookMetadataWhenApiReturnsSuccessResponse() {
+    // TODO: implement this test
   }
 
   @Test
-  void shouldReturnNullWhenBookNotFound() {
-    // TODO: (Optional - requires modifying the client)
-    // 1. Set up WireMock server
-    // 2. Configure WebClient and OpenLibraryApiClient
-    // 3. Stub a 404 response for a specific ISBN
-    // 4. Call the client and verify that null is returned
-    // Note: You'll need to modify the OpenLibraryApiClient.java first
+  void shouldThrowExceptionWhenServerReturnsInternalError() {
+    // TODO: implement this test
   }
 }

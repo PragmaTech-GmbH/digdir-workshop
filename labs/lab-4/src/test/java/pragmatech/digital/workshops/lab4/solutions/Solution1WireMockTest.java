@@ -16,16 +16,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Solution for Exercise 1: Testing the OpenLibraryApiClient with WireMock
- * <p>
- * This test demonstrates how to:
- * 1. Set up WireMock using the JUnit 5 extension
- * 2. Configure WebClient to point to WireMock
- * 3. Create test cases for successful responses and error handling
- */
 class Solution1WireMockTest {
 
   @RegisterExtension
@@ -37,40 +29,31 @@ class Solution1WireMockTest {
 
   @BeforeEach
   void setUp() {
-    WebClient webClient = WebClient.builder()
-      .baseUrl(wireMockServer.baseUrl())
-      .build();
-
-    cut = new OpenLibraryApiClient(webClient);
+    cut = new OpenLibraryApiClient(
+      WebClient.builder().baseUrl(wireMockServer.baseUrl()).build());
   }
 
   @Test
-  void shouldReturnBookMetadataWhenApiReturnsValidResponse() {
-    // Arrange
+  void shouldReturnBookMetadataWhenApiReturnsSuccessResponse() {
     String isbn = "9780132350884";
 
     wireMockServer.stubFor(
       get(urlPathEqualTo("/api/books"))
         .willReturn(aResponse()
           .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-          .withBodyFile(isbn + "-success.json"))
-    );
+          .withBodyFile(isbn + "-success.json")));
 
-    // Act
     BookMetadataResponse result = cut.getBookByIsbn(isbn);
 
-    // Assert
     assertThat(result).isNotNull();
     assertThat(result.title()).isEqualTo("Clean Code");
-    assertThat(result.getMainIsbn()).isEqualTo("9780132350884");
     assertThat(result.getPublisher()).isEqualTo("Prentice Hall");
     assertThat(result.numberOfPages()).isEqualTo(431);
   }
 
   @Test
-  void shouldHandleServerErrorWhenApiReturns500() {
-    // Arrange
-    String isbn = "9999999999";
+  void shouldThrowExceptionWhenServerReturnsInternalError() {
+    String isbn = "9780132350884";
 
     wireMockServer.stubFor(
       get(urlPathEqualTo("/api/books"))
@@ -79,53 +62,7 @@ class Solution1WireMockTest {
           .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
           .withBody("{\"error\": \"Internal Server Error\"}")));
 
-    // Act & Assert
-    WebClientResponseException exception = assertThrows(WebClientResponseException.class, () ->
-      cut.getBookByIsbn(isbn)
-    );
-
-    assertThat(exception.getStatusCode().value()).isEqualTo(500);
-  }
-
-  /**
-   * Note: This test will fail with the current implementation of OpenLibraryApiClient.
-   * <p>
-   * To make it pass, the client needs to be modified to handle 404 responses by returning null.
-   * Here's how the getBookByIsbn method in OpenLibraryApiClient could be modified:
-   * <p>
-   * ```java
-   * public BookMetadataResponse getBookByIsbn(String isbn) {
-   * return webClient.get()
-   * .uri(uri -> uri.path("/api/books").queryParam("bibkeys", "ISBN:" + isbn).queryParam("format", "json").queryParam("jscmd", "data").build())
-   * .retrieve()
-   * .onStatus(status -> status.value() == 404,
-   * response -> java.util.concurrent.Flow.Publisher.empty())
-   * .bodyToMono(BookMetadataResponse.class)
-   * .onErrorReturn(WebClientResponseException.NotFound.class, null)
-   * .block();
-   * }
-   * ```
-   */
-  @Test
-  void shouldReturnNullWhenBookNotFound() {
-    // Arrange
-    String isbn = "9999999999";
-
-    wireMockServer.stubFor(
-      get(urlPathEqualTo("/api/books"))
-        .willReturn(aResponse()
-          .withStatus(404)));
-
-    // Currently, this will throw WebClientResponseException.NotFound
-    // After modifying the client, it should return null
-
-    // Act & Assert - This will fail until the client is modified
-    // BookMetadataResponse result = cut.getBookByIsbn(isbn);
-    // assertThat(result).isNull();
-
-    // For now, we expect the exception
-    assertThrows(WebClientResponseException.class, () ->
-      cut.getBookByIsbn(isbn)
-    );
+    assertThatThrownBy(() -> cut.getBookByIsbn(isbn))
+      .isInstanceOf(WebClientResponseException.InternalServerError.class);
   }
 }
