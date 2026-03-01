@@ -324,7 +324,7 @@ See Release Notes von [Spring Framework 7.0.0](https://spring.io/blog/2025/07/17
 
 - **Speed**: Sliced contexts start in < 1 s vs 10–30 s for a full context
 - **Corner cases**: reproducing a specific validation error or HTTP status via `@SpringBootTest` often requires a `@MockitoBean` → **that creates a new context**
-- **Focus**: sliced tests fail closer to the root cause — easier to debug
+- **Focus**: sliced tests fail closer to the root cause - easier to debug
 - **Feedback loop**: run 50 `@WebMvcTest` tests in the time one `@SpringBootTest` starts
 
 **Rule of thumb:**

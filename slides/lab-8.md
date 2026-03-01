@@ -387,7 +387,7 @@ class BookNotificationServiceTest {
 
 ## Useful Libraries: Gatling / JMH
 
-### Gatling — Load & Performance Testing
+### Gatling - Load & Performance Testing
 
 ```scala
 class BookApiSimulation extends Simulation {
@@ -401,12 +401,12 @@ class BookApiSimulation extends Simulation {
 ```
 
 ```bash
-mvn gatling:test    # Generates HTML report in target/gatling/
+mvn gatling:test   # Generates HTML report in target/gatling/
 ```
 
 ---
 
-### JMH — Micro-benchmarking
+### JMH - Micro-benchmarking
 
 ```java
 @Benchmark
@@ -487,12 +487,157 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 - Generates regression tests before refactoring
 - Runs on CI to detect new uncovered code
 
-**Limitations:**
-- Generated tests may test implementation details, not behavior
-- Requires review — quantity ≠ quality
-- No substitute for thinking about *what* to test and *why*
+---
 
-> **Best used as:** a starting point for untested legacy code, not a replacement for thoughtful TDD.
+<!-- _class: section -->
+
+# Confidence in Every Commit
+
+## Beyond Tests: The Full Feedback Loop
+
+---
+
+## Tests Are Necessary - But Not Sufficient
+
+A green test suite tells you the code is correct. It does not tell you the system is healthy in production.
+
+**Confidence in every commit** requires closing the loop after deployment:
+
+| Layer | Question answered |
+|---|---|
+| Tests | Does the code behave as intended? |
+| Observability | Is the running system healthy right now? |
+| Deployment strategy | Can we release without risk or downtime? |
+| Feature flags | Can we decouple release from deployment? |
+| Recovery automation | Can we self-heal without human intervention? |
+
+---
+
+## Meaningful Alerts & Developer-Friendly Observability
+
+Alerts that fire on every small spike train developers to ignore them - alert on **symptoms that affect users**, not raw metrics.
+
+**MDC (Mapped Diagnostic Context)** enriches every log line with request-scoped metadata so developers can trace a single request across thousands of log lines:
+
+```java
+// Set once per request (e.g. in a filter or interceptor)
+MDC.put("tenantId", tenantId);
+MDC.put("userId",   userId);
+MDC.put("traceId",  traceId);
+
+// Every subsequent log line automatically includes these fields
+log.info("Book created");
+// → {"tenantId":"digdir","userId":"u42","traceId":"abc123","message":"Book created"}
+```
+
+---
+
+**Good observability checklist:**
+- Structured JSON logs (Logback + `logstash-logback-encoder`) shipped to a central store
+- Dashboards scoped to **error rate**, **p99 latency**, and **business KPIs** - not CPU graphs
+- Runbooks linked directly from alert notifications
+
+---
+
+## Automated Deployments & Rollback
+
+Manual deployments introduce human error and slow incident recovery. Every deployment step should be automated and every deployment should be reversible in under five minutes.
+
+**Deployment pipeline essentials:**
+
+```text
+commit → CI (tests pass) → build image → push to registry
+    → deploy to DEV (smoke test)
+    → deploy to QA  (E2E / nightly)
+    → deploy to PROD (blue/green swap or rolling update)
+              │
+              └── automated rollback if health check fails
+```
+
+---
+
+**Rollback triggers to Monitor**
+- Health check endpoint (`/actuator/health`) returns non-200 for > 60 s after deploy
+- Error rate spikes above baseline within the first 5 minutes
+- P99 latency exceeds SLO threshold post-deploy
+
+---
+
+## Blue/Green & A/B Deployments
+
+**Blue/green** eliminates downtime and provides instant rollback: run two identical environments, flip the load balancer, keep the old environment warm.
+
+```text
+              Load Balancer
+                   │
+         ┌─────────┴─────────┐
+         ▼                   ▼
+    Blue (v1.2)         Green (v1.3)  ← new version deployed here
+    [100% traffic]      [0% traffic, health checked]
+                             │
+                 swap: Green gets 100%, Blue stays warm
+                             │
+              rollback = swap back in < 1 minute
+```
+
+---
+
+**A/B testing** routes a percentage of real traffic to the new version before a full rollout:
+
+```text
+100% traffic → v1.2 (control)
+  ↓
+10% traffic  → v1.3 (variant)   ← measure conversion, errors, latency
+90% traffic  → v1.2 (control)
+  ↓
+100% traffic → v1.3 (if metrics OK)
+```
+
+Requires feature-flag or traffic-splitting infrastructure (Nginx, Istio, AWS ALB, LaunchDarkly).
+
+---
+
+## Feature Flags: Decouple Deployment from Release
+
+**Deployment** = shipping code to production. 
+**Release** = making a feature visible to users. Feature flags let you do both independently.
+
+```java
+if (featureFlags.isEnabled("new-book-search", userId)) {
+  return newBookSearchService.search(query);
+} else {
+  return legacyBookSearchService.search(query);
+}
+```
+
+---
+
+**What this enables:**
+
+| Scenario | Without flags | With flags                            |
+|---|---|---------------------------------------|
+| Half-finished feature | Block PR until done | Merge behind flag, release when ready |
+| Risky refactor | Full rollout or nothing | Canary: enable for 1% of users        |
+| Incident response | Redeploy to revert | Flip flag - instant, no deploy        |
+| Beta testing | Separate branch | Enable flag for specific tenants      |
+
+**Tooling options:** LaunchDarkly · Unleash (open source) · Spring Boot `@ConditionalOnProperty` for internal flags
+
+---
+
+## Recovery Automation
+
+The goal is not zero failures - it is **fast, automatic recovery** when failures occur.
+
+**Recovery patterns to implement:**
+
+| Pattern | What it handles |
+|---|---|
+| Liveness probe restart | JVM deadlock, infinite loop |
+| Readiness probe traffic cut | Slow startup, warming up caches |
+| Circuit breaker (Resilience4j) | Downstream service unavailable |
+| Retry with exponential backoff | Transient network errors |
+| Dead-letter queue | Failed async message processing |
 
 ---
 

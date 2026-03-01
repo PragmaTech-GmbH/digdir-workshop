@@ -294,7 +294,7 @@ Even with `@Container static` but spread across many classes, Ryuk stops the con
 
 ## The Singleton Pattern: Static @Bean
 
-Spring Boot 3.1+ — use a `@TestConfiguration` with a `static` factory method:
+Spring Boot 3.1+ -   use a `@TestConfiguration` with a `static` factory method:
 
 ```java
 @TestConfiguration(proxyBeanMethods = false)
@@ -562,7 +562,7 @@ The `cache: maven` flag in `setup-java` automatically caches `~/.m2/repository`:
   with:
     java-version: '21'
     distribution: 'temurin'
-    cache: maven              # ← Saves ~200 MB download every run
+    cache: maven              # ← Saves multiple MB download every run
 ```
 
 Or with manual cache control (for advanced invalidation):
@@ -582,7 +582,7 @@ Or with manual cache control (for advanced invalidation):
 
 ## Best Practice 3: Enable Testcontainers Reuse in CI
 
-Pre-pull images to avoid rate limiting and cold starts:
+Pre-pull images to avoid rate limiting when running tests in parallel:
 
 ```yaml
 - name: Pre-pull Testcontainers images
@@ -592,20 +592,14 @@ Pre-pull images to avoid rate limiting and cold starts:
   run: echo "testcontainers.reuse.enable=true" >> ~/.testcontainers.properties
 ```
 
-Or via environment variable:
-
-```yaml
-env:
-  TESTCONTAINERS_REUSE_ENABLE: true
-```
 
 **Note:** Container reuse in CI only helps when multiple test jobs share the same runner and Docker daemon. For ephemeral runners, pre-pulling the image is the main win.
 
 ---
 
-## Best Practice 4: Separate Unit and Integration Test Jobs
+## Best Practice 4: Try Separating Unit and Integration Test Jobs
 
-Split for faster feedback and better failure visibility:
+Measure if splitting is an option, otherwise run them together with `./mvnw verify`:
 
 ```yaml
 jobs:
@@ -615,7 +609,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: { java-version: '21', distribution: 'temurin', cache: maven }
       - run: ./mvnw test
 
   integration-tests:
@@ -624,7 +617,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: { java-version: '21', distribution: 'temurin', cache: maven }
       - run: ./mvnw verify -DskipUnitTests
 ```
 
@@ -643,8 +635,9 @@ Make test failures visible directly in the PR UI:
     path: |
       **/target/surefire-reports/
       **/target/failsafe-reports/
-    retention-days: 7
 ```
+
+---
 
 Or use `dorny/test-reporter` for inline PR annotations:
 
@@ -686,12 +679,16 @@ concurrency:
 
 ## Best Practice 7: Launch the App in Docker and Smoke-Test It
 
-Catch **deployment-time failures** that automated unit/integration tests miss:
+Catch **deployment-time failures** that automated unit/integration tests miss.
+
+Create a new workflow before e.g. deployment:
 
 - Custom JVM startup flags or `-javaagent` entries missing in the image
 - Missing fonts or native libraries in the container OS (e.g. `libfreetype` for PDF rendering)
 - Incorrect `ENTRYPOINT` or `CMD` in the `Dockerfile`
 - Memory limits or GC settings that cause OOM at startup
+
+---
 
 ```yaml
 - name: Build Docker image
@@ -734,15 +731,9 @@ class DockerImageSmokeIT {
   }
 }
 ```
-
-**Catches:** missing system libraries, wrong base image, broken `ENTRYPOINT`.
-
 ---
 
 ## Best Practice 8: Upload Screenshots of Failed UI Tests
-
-When Selenium or Playwright tests fail, screenshots are essential for debugging.
-Never lose them — always upload as CI artifacts:
 
 ```yaml
 - name: Run UI / E2E tests
@@ -757,11 +748,54 @@ Never lose them — always upload as CI artifacts:
     path: |
       **/target/screenshots/
       **/target/videos/
-      **/build/reports/tests/
-    retention-days: 14
 ```
 
 Works with **Selenide** (`screenshots/` folder), **Playwright** (`videos/`), or any framework that saves files on failure.
+
+---
+
+## Best Practice 9: Nightly E2E Runs Against Real Environments
+
+E2E tests that hit a real HTTP endpoint should accept the base URL as a configurable parameter:
+
+```java
+// Base URL driven by a system property — falls back to localhost for local runs
+@SpringBootTest(webEnvironment = RANDOM_PORT)
+class BookApiE2ETest {
+
+  @Value("${e2e.base-url:http://localhost:${local.server.port}}")
+  private String baseUrl;
+
+  private WebTestClient webTestClient;
+
+  @BeforeEach
+  void setUp() {
+    webTestClient = WebTestClient.bindToServer()
+      .baseUrl(baseUrl)
+      .build();
+  }
+}
+```
+
+---
+
+Schedule a nightly workflow that passes the target environment URL:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC every night
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run E2E tests against QA
+        run: ./mvnw verify -P e2e -De2e.base-url=${{ vars.QA_BASE_URL }}
+```
+
+The same tests run locally against `localhost` and in CI against `DEV` or `QA` - no code changes needed.
 
 ---
 
