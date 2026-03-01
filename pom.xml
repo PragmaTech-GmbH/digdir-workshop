@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>pragmatech.digital.workshops</groupId>
-  <artifactId>testing-spring-boot-applications-demystified-workshop</artifactId>
+  <artifactId>digdir-workshop</artifactId>
   <version>1.0.0</version>
   <packaging>pom</packaging>
   <name>Testing Spring Boot Applications Demystified</name>
