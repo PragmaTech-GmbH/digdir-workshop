@@ -179,7 +179,8 @@
             <param>pragmatech.digital.workshops.lab8.service.LateReturnFeeCalculator</param>
           </targetClasses>
           <targetTests>
-            <param>pragmatech.digital.workshops.lab8.experiment.LateReturnFeeCalculatorTest</param>
+<!--            <param>pragmatech.digital.workshops.lab8.experiment.LateReturnFeeCalculatorTest</param>-->
+            <param>pragmatech.digital.workshops.lab8.experiment.LateReturnFeeCalculatorBadTest</param>
           </targetTests>
           <mutators>
             <mutator>DEFAULTS</mutator>

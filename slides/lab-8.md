@@ -498,112 +498,94 @@ Define your testing conventions in `.claude/CLAUDE.md` to guide AI code generati
 
 # Workshop Summary
 
-## Lab 1 — JUnit 5 & The Testing Pyramid
+## Lab 1 - Unit Testing with Spring Boot
 
-- JUnit 5 annotations: `@Test`, `@BeforeEach`, `@Nested`, `@ParameterizedTest`, `@Tag`
-- Maven Surefire (unit) vs. Failsafe (integration) plugin split
-- Test categorization with `@Tag` and Maven profiles (`-Punit-tests`)
-- The testing pyramid: unit → integration → e2e; prefer fast tests at the bottom
-
----
-
-# Workshop Summary
-
-## Lab 2 — Sliced Testing & Testcontainers
-
-- `@WebMvcTest` — loads only the web layer (controller + filters), fast and focused
-- `@DataJpaTest` — loads only JPA layer with in-memory or real DB
-- `@JsonTest` — tests JSON serialization/deserialization in isolation
-- `@RestClientTest` — tests HTTP clients with a mock server
-- Testcontainers with `@ServiceConnection` — real PostgreSQL in Docker, zero config
+- The testing pyramid: write most tests as fast unit tests; reserve slow integration tests for critical paths only
+- JUnit 5/6 lifecycle annotations (`@BeforeEach`, `@Nested`, `@ParameterizedTest`, `@Tag`) and the extension model for cross-cutting concerns
+- Maven Surefire runs `*Test.java` (unit); Failsafe runs `*IT.java` (integration) - keeping feedback loops separate
+- `spring-boot-starter-test` bundles AssertJ, Mockito, and the Spring Test framework out of the box
 
 ---
 
-# Workshop Summary
+## Lab 2 - Sliced Testing: The Web Layer
 
-## Lab 3 — WireMock & External APIs
-
-- WireMock standalone for stubbing HTTP dependencies in tests
-- `ApplicationContextInitializer` pattern to wire WireMock into Spring context
-- Stub request/response matching: URL, headers, body matchers
-- `WireMock.verify()` to assert outbound HTTP calls were made
-- Separating stub definitions into dedicated stub classes for reuse
+- `@WebMvcTest` loads only controllers, filters, and security config - no service or repository beans - starts in under a second
+- `MockMvc` simulates HTTP requests inside the JVM without a real server: assert status codes, JSON paths, and headers
+- `@MockitoBean` stubs the service layer so controllers can be tested in complete isolation from the database
+- Spring Security is fully active: use `@WithMockUser`, `.with(jwt())`, and `.with(csrf())` per test
 
 ---
 
-# Workshop Summary
+## Lab 3 - Sliced Testing: Persistence & HTTP Clients
 
-## Lab 4 — Best Practices & Mutation Testing
-
-- Best practices: test readability, meaningful names, AAA structure
-- `@MockitoBean` vs `@MockBean` (Spring Boot 3.4+)
-- Spring Boot test slices deep dive: what each slice loads
-- PIT mutation testing: detecting weak assertions and missing branches
-- AI-assisted test generation: using LLMs as a TDD pair programmer
+- `@DataJpaTest` loads only the JPA layer and wraps every test in a transaction that rolls back automatically
+- Replace H2 with a real PostgreSQL container via Testcontainers + `@ServiceConnection` to test against the production database engine
+- `@JsonTest` verifies Jackson serialisation/deserialisation in isolation; `@RestClientTest` stubs HTTP responses via `MockRestServiceServer`
+- Each slice loads only what it needs - failures pinpoint the right layer and the feedback loop stays fast
 
 ---
 
-# Workshop Summary
+## Lab 4 - Full Context Integration Testing
 
-## Lab 5 — Advanced Spring Test Slices
-
-- `@SpringBootTest` full context vs. targeted slices
-- Custom test slices with `@AutoConfigureXxx`
-- `@TestConfiguration` for test-only beans
-- Security testing: `@WithMockUser`, `@WithSecurityContext`
-- Validation testing with `@SpringBootTest(webEnvironment = NONE)`
+- `@SpringBootTest` boots the entire `ApplicationContext` - every bean, security config, and Flyway migration - closest to production
+- Four challenges: outbound HTTP on startup, infrastructure dependencies, security, and data cleanup — each requiring a deliberate solution
+- WireMock via `ApplicationContextInitializer` stubs outbound HTTP before beans initialize; Testcontainers manages a real PostgreSQL container
+- `MOCK` (MockMvc, `@Transactional` rollback) vs. `RANDOM_PORT` (real TCP, real commits, manual `@AfterEach` cleanup)
 
 ---
 
-# Workshop Summary
+## Lab 5 - MockMvc, WebTestClient & Context Customisation
 
-## Lab 6 — Spring Context Caching
-
-- Spring caches `ApplicationContext` across tests sharing the same configuration
-- Context cache killers: `@DirtiesContext`, `@MockitoBean`, `@ActiveProfiles`, `@TestPropertySource`
-- The `SharedIntegrationTestBase` pattern: one base class → one cached context
-- Scout24 example: 12 contexts → 2 contexts, 45 min → 12 min build time
-- Use consistent `@Import`, `@ContextConfiguration` across all integration tests
-
----
-
-# Workshop Summary
-
-## Lab 7 — Test Parallelization & CI Excellence
-
-- JUnit Jupiter parallel execution + Maven Surefire `forkCount` — complementary mechanisms
-- Safe integration test parallelization: `@Transactional` + UUID test data
-- Testcontainers: static `@Bean @ServiceConnection` singleton pattern
-- Connection pool exhaustion: reduce `hikari.maximum-pool-size` + maximize context reuse
-- GitHub Actions: `timeout-minutes`, `cache: maven`, `redirectTestOutputToFile`, `--fail-at-end`
-
----
-
-# Workshop Summary
-
-## Lab 8 — General Testing Hacks
-
-- `OutputCaptureExtension` — capture stdout/logs in tests without Spring context
-- Mutation testing with PIT — find weak assertions and untested branches
-- Container log capture — `Slf4jLogConsumer` + `getLogs()` for debugging
-- `@RecordApplicationEvents` — assert Spring application events are published
-- `ApplicationContextRunner` — test conditional beans in milliseconds
-- ArchUnit — enforce layered architecture rules as executable tests
-- GreenMail — test email sending without a real SMTP server
-- TDD with AI — CLAUDE.md conventions, test-first prompting, Diffblue Cover
+- `MOCK`: test and server share the same thread → `@Transactional` wraps the whole call chain and rolls back automatically
+- `RANDOM_PORT`: real TCP to a separate Tomcat thread → `@Transactional` has no effect; use `@AfterEach deleteAll()` for cleanup
+- Customize the context per class with `@TestPropertySource`, `@ActiveProfiles`, `@TestConfiguration` + `@Import`, and `@Primary` beans
+- Prefer handwritten fakes with `@Primary` over `@MockitoBean` - every `@MockitoBean` variation forces a brand-new context startup
 
 ---
 
 
-## Q & A
+## Lab 6 - Spring Context Caching
 
+- Spring caches `ApplicationContext` using `MergedContextConfiguration` as the key - identical configs share one context across the suite
+- Before starting, Spring X-rays the test class and merges all annotations, initializers, `@MockitoBean` definitions, and property overrides into the key object; `hashCode`/`equals` decides hit or miss
+- Cache killers: `@DirtiesContext`, per-class `@MockitoBean`, varying `@ActiveProfiles`, inline `properties` on `@SpringBootTest`
+- The `SharedIntegrationTestBase` pattern consolidates all shared annotations into one abstract base class → one context for all integration tests
+
+---
+
+## Lab 7 - Test Parallelisation & CI Excellence
+
+- JUnit Jupiter parallel execution (`junit-platform.properties`) + Maven Surefire `forkCount` are complementary and multiply each other's speedup
+- Safe parallel integration tests use UUID-prefixed test data or `@Transactional` rollback to prevent cross-test interference
+- Static `@Bean @ServiceConnection` Testcontainers fields share one container instance across all tests in the same context
+- GitHub Actions best practices: `timeout-minutes`, Maven cache, `--fail-at-end` to collect all failures, redirect test output to files
+
+---
+
+## Lab 8 - General Testing Hacks & Libraries
+
+- `OutputCaptureExtension`, `Slf4jLogConsumer`, `@RecordApplicationEvents`, `ApplicationContextRunner` - lightweight utilities for targeted testing without a full context
+- PIT mutation testing introduces code mutations automatically: 100% line coverage ≠ 100% confidence; strong assertions are essential
+- ArchUnit enforces layered architecture rules as executable unit tests in CI - soft conventions become hard failures
+- Object Mother pattern centralizes test data creation; GreenMail, Selenide, and Pact fill gaps that Spring Boot's built-in slices do not cover
+
+---
+
+![bg right:33%](assets/qa-screen.jpg)
+
+
+## Time for General Q&A
+
+- Do you have any questions about the exercises, the solutions, or the general testing tips and libraries we covered?
+- Are there any specific testing challenges you've faced in your projects that you'd like to discuss?
+- Would you like to see a live demo of any of the tools or techniques we covered?
 
 
 ---
 
 ## Joyful Testing!
 
-Workshop materials are on [GitHub](https://github.com/PragmaTech-GmbH/digdir-workshop/)
+Workshop materials are on [GitHub](https://github.com/PragmaTech-GmbH/digdir-workshop/).
 
 The rendered slides are in the `slides/` folder.
 
