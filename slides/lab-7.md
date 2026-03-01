@@ -25,21 +25,9 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## Discuss Exercises from Lab 6
 
----
-
-## Lab 6 Recap
-
-### What We Did
-
-- Ran the five `ContextCacheKiller*IT` tests and counted unique Spring contexts in the logs
-- Identified what breaks context caching in each class: `@DirtiesContext`, `@MockitoBean`, `@ActiveProfiles`, `@TestPropertySource`
-- Refactored all killer tests to extend `SharedIntegrationTestBase` → **one cached context**
-
-### Key Takeaways
-
-- Every annotation difference → new context → expensive cold start (10–30 seconds)
-- The Scout24 example: 12 contexts → 2 contexts, build time cut from 45 min → 12 min
-- The base class pattern is the single most impactful context caching optimization
+- Exercises:
+  - Solution1ContextCachingAnalysis
+  - Solution2SharedBaseClassTest
 
 ---
 
@@ -47,13 +35,13 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 # Lab 7
 
-## Build Speed & CI Excellence
+## Strategies for Fast and Reproducible Spring Boot Test Suites
 
-### Test Parallelization, Testcontainers Optimization & CI Best Practices
+### Build Speed & CI Excellence
 
 ---
 
-# Test Parallelization
+## Test Parallelization
 
 **Goal**: Reduce build time by running tests concurrently
 
@@ -64,11 +52,11 @@ Two independent mechanisms — they work at different levels:
 | Maven Surefire/Failsafe `forkCount` | JVM processes | Separate heaps, class loaders |
 | JUnit Jupiter parallel execution | Threads within one JVM | Shared heap, shared class loader |
 
-These are **complementary** — you can (and should) use both together.
+These are **complementary** - you can (and should) use both together.
 
 ---
 
-## Approach 1: Maven forkCount — Process Level
+## Approach 1: Maven `forkCount` - Process Level
 
 Splits tests across multiple **separate JVM processes**:
 
@@ -85,13 +73,12 @@ Splits tests across multiple **separate JVM processes**:
 - `forkCount=1` — default: one JVM for all tests
 - `forkCount=2` — two JVMs running in parallel
 - `forkCount=1C` — one JVM per available CPU core (dynamic)
-- `forkCount=0` — runs in Maven's own JVM (not recommended)
 
 > **Maven Failsafe** works the same way for `*IT.java` integration tests.
 
 ---
 
-## Approach 2: JUnit Jupiter Parallel — Thread Level
+## Approach 2: JUnit Jupiter Parallel - Thread Level
 
 Runs test **classes** (and/or methods) concurrently on threads within one JVM:
 
@@ -116,9 +103,7 @@ Or configure directly in Maven Surefire:
 
 ---
 
-## The Two Axes of Parallelism Visualized
-
-![w:1050 center](assets/lab-7-parallelization.png)
+![bg w:800 h:900 center](assets/parallel-testing.svg)
 
 ---
 
