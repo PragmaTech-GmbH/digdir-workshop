@@ -25,23 +25,9 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ## Discuss Exercises from Lab 7
 
----
-
-## Lab 7 Recap
-
-### What We Did
-
-- Configured JUnit Jupiter parallel execution (`junit-platform.properties`) and Maven Surefire `forkCount`
-- Identified parallel-unsafe patterns: static mutable state, hardcoded ISBNs, `count()` assertions
-- Refactored integration tests to use `@Transactional` + UUID-based test data
-- Built a reusable `SharedPostgresContainerExtension` for singleton container management
-
-### Key Takeaways
-
-- Two independent axes: JVM-level forks (`forkCount`) + thread-level (`JUnit parallel`)
-- Integration tests: parallelize at class level only (`mode.default = same_thread`)
-- Pre-pull Docker images in CI; cache Maven dependencies; always set `timeout-minutes`
-- `redirectTestOutputToFile` + `--fail-at-end` are essential CI quality-of-life improvements
+- Exercises:
+  - `Exercise1ParallelExecutionTest`
+  - `Exercise2TestIsolationTest`
 
 ---
 
@@ -49,9 +35,9 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 # Lab 8
 
-## General Testing Hacks
+## General Spring Boot Testing Tips & Tricks and Q&A
 
-### OutputCapture · Mutation Testing · Container Logs · Application Events · ApplicationContextRunner · ArchUnit · Useful Libraries · TDD with AI
+### Various Spring Boot Testing Hacks
 
 ---
 

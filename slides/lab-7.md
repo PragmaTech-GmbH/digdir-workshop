@@ -107,13 +107,13 @@ Or configure directly in Maven Surefire:
 
 ---
 
-## Parallelization Strategies Compared
+## JUnit Jupiter Parallelization Strategies Compared
 
 | Strategy | `mode.classes.default` | `mode.default` | Effect |
 |---|---|---|---|
-| **Safest** (recommended start) | `concurrent` | `same_thread` | Classes in parallel, methods sequential |
-| **Fastest** (requires careful isolation) | `concurrent` | `concurrent` | Everything in parallel |
-| **Sequential** (debugging) | `same_thread` | `same_thread` | Fully sequential |
+| **Safest**  | `concurrent` | `same_thread` | Classes in parallel, methods sequential |
+| **Fastest**  | `concurrent` | `concurrent` | Everything in parallel |
+| **Sequential**  | `same_thread` | `same_thread` | Fully sequential |
 
 Override per class with `@Execution`:
 
@@ -126,7 +126,7 @@ class DiscountServiceTest { ... }
 
 ## Unit Tests: Writing Parallel-Safe Code
 
-Unit tests are the easiest to parallelize — **no shared infrastructure**.
+Unit tests are the easiest to parallelize - **no shared infrastructure**.
 
 **What to AVOID:**
 
@@ -240,12 +240,14 @@ class BookIT {
 }
 ```
 
+---
+
 **Rules for parallel-safe integration tests:**
 - `@Transactional` for automatic rollback after each test
-- UUID-based test data — never hardcode ISBNs or IDs
+- UUID-based test data - avoid hardcoding IDs or sharing them
 - Never assert `count()` without scope limiting to your own data
 - Use `@AfterEach deleteAll()` if `@Transactional` is not applicable (e.g. `WebTestClient`)
-- No `@DirtiesContext` — use `@Sql` for data setup/teardown instead
+- No `@DirtiesContext` - use `@Sql` for data setup/teardown instead
 
 ---
 
@@ -260,15 +262,13 @@ class BookIT {
 | `forkCount` | Very beneficial | Be careful with Testcontainers |
 | Typical speed gain | 2–4× | 1.5–2× |
 
-**Always measure! Run with and without, compare wall-clock time.**
+**Always measure! Run with and without, compare time.**
 
 ---
 
-# Optimize Containers Time
+## Optimize Containers Time
 
-## Correct Usage of Testcontainers
-
-Reference: [maciejwalkowiak.com/blog/testcontainers-spring-boot-setup](https://maciejwalkowiak.com/blog/testcontainers-spring-boot-setup/)
+### Correct Usage of Testcontainers
 
 ---
 
@@ -323,11 +323,12 @@ Use it in every integration test: `@Import(LocalDevTestcontainerConfig.class)`
 
 ---
 
+
 ## The Hidden Danger: Connection Pool Exhaustion
 
 Each Spring context has its **own HikariCP connection pool**.
 
-```
+```text
 PostgreSQL max_connections = 100  (default)
 
 Context A  →  HikariPool (10 connections each)  ─┐
@@ -338,38 +339,35 @@ Context D  →  HikariPool (10 connections each)  ─┘
 10th context starts → FATAL: sorry, too many clients already
 ```
 
-This is why Lab 6 context caching and Lab 7 parallelization work **together** — fewer contexts means fewer connection pools.
+This is why Lab 6 context caching and Lab 7 parallelization work **together** - fewer contexts means fewer connection pools.
 
 ---
 
 ## Preventing Connection Pool Exhaustion
 
-**Option 1 — Maximize context reuse** (from Lab 6):
+**Option 1 - Maximize context reuse** (from Lab 6):
 
 → One `SharedIntegrationTestBase` → one context → one pool
 
-**Option 2 — Reduce pool size per context:**
+**Option 2 - Reduce pool size per context:**
 
 ```yaml
-# src/test/resources/application.yml
 spring:
   datasource:
     hikari:
       maximum-pool-size: 5   # ↓ down from default 10
 ```
 
-**Option 3 — Raise PostgreSQL's max_connections:**
+**Option 3 - Raise PostgreSQL's max_connections:**
 
 ```java
 new PostgreSQLContainer<>("postgres:16-alpine")
   .withCommand("postgres", "-c", "max_connections=200");
 ```
 
-**Best practice: combine Option 1 + Option 2**
-
 ---
 
-## Testcontainers Reuse Mode (Local Dev)
+## Testcontainers Reuse Mode
 
 Skip container startup entirely between local test runs:
 
@@ -386,8 +384,15 @@ testcontainers.reuse.enable=true
 
 **Implications:**
 - Container keeps its state between runs → good test isolation (`@Transactional`) is critical
-- Flyway migrations run on an already-migrated schema → use `baseline-on-migrate: true`
-- **Not for CI** — CI should always start fresh containers for reproducibility
+
+---
+
+## Further Testcontainers Optimization Tips
+
+- (CI-relevant) Pre-pull images to avoid rate limits and cold starts, make sure the pulled image is cached in the CI environment
+- Use custom Docker images to e.g., pre-create the database schema, reducing startup time
+- Start multiple Docker containers in parallel `Startables.deepStart(postgres, kafka).join();`
+- Consider [Zonky](https://github.com/zonkyio/embedded-database-spring-test) Embedded Database
 
 ---
 
@@ -397,26 +402,17 @@ testcontainers.reuse.enable=true
 
 ## Tip 1: Hide Test Output, Show on Failure
 
-By default all test output floods the console. Redirect it to files:
+By default, all test output floods the console. 
+
+Redirect it to files:
 
 ```xml
 <plugin>
   <artifactId>maven-surefire-plugin</artifactId>
   <configuration>
-    <!-- Output goes to surefire-reports/*.txt; shown in console only on failure -->
+    <!-- Output goes to surefire-reports/*.txt -->
     <redirectTestOutputToFile>true</redirectTestOutputToFile>
     <trimStackTrace>false</trimStackTrace>
-  </configuration>
-</plugin>
-```
-
-Same setting for Failsafe (integration tests):
-
-```xml
-<plugin>
-  <artifactId>maven-failsafe-plugin</artifactId>
-  <configuration>
-    <redirectTestOutputToFile>true</redirectTestOutputToFile>
   </configuration>
 </plugin>
 ```
@@ -437,16 +433,19 @@ Instead of failing the build on a first flaky failure, retry automatically:
 </plugin>
 ```
 
-**Important:**
 - A test that passes on retry is reported as **"flaky"** in the XML report, not as a failure
-- This is a **safety net**, not a fix — investigate and eliminate the root cause
-- Track flaky test count over time; a rising number is a warning sign
+
+```text
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Flakes: 1
+```
+
+- This is a **safety net**, not a fix - investigate and eliminate the root cause
 
 ---
 
 ## Tip 3: Maven Daemon Locally
 
-`mvnd` keeps a hot Maven JVM between builds — no JVM startup cost:
+`mvnd` keeps a hot Maven JVM between builds - no JVM startup cost:
 
 ```bash
 # Install (macOS)
@@ -457,12 +456,6 @@ mvnd test
 mvnd verify
 mvnd clean install -DskipTests
 ```
-
-| Metric | `./mvnw` | `mvnd` |
-|---|---|---|
-| First build | Normal | Normal |
-| Subsequent builds | ~5–10s JVM startup | ~1–2s (JVM already warm) |
-| Plugin class loading | Every run | Cached in daemon |
 
 Works seamlessly with all plugins. Particularly helpful for rapid TDD cycles.
 
@@ -483,13 +476,11 @@ Add a `skipITs` property to Failsafe so developers can opt out of slow tests:
 
 ```bash
 # Fast local unit tests only
-./mvnw test -DskipITs
+./mvnw verify -DskipITs
 
 # Full build including integration tests
 ./mvnw verify
 ```
-
-**Useful for:** quick red-green-refactor cycles where you don't want to wait for Testcontainers every time.
 
 ---
 
@@ -778,60 +769,8 @@ Works with **Selenide** (`screenshots/` folder), **Playwright** (`videos/`), or 
 
 ## Lab 7
 
----
+- Navigate to the `labs/lab-7` folder and complete the tasks in the `README`
+- **Exercise 1**: Observe and measure the effect of different parallelization settings
+- **Exercise 2**: Make all integration tests pass reliably under parallel execution
+- Time boxed: until the end of the coffee break
 
-## Exercise 1: Play Around with Parallelization
-
-**Goal:** Observe and measure the effect of different parallelization settings
-
-**Steps:**
-1. Run `./mvnw test` and note the total build time in the output
-2. Open `src/test/resources/junit-platform.properties` and change:
-   - `mode.default = concurrent` — observe which tests break and why
-   - Reset to `mode.default = same_thread`
-3. In `pom.xml`, change `forkCount` from `1C` to `1` and compare build time
-4. Run `./mvnw verify` and observe thread names printed by experiment tests
-
-**File:** `exercises/Exercise1ParallelExecutionTest.java`
-**Solution:** `solutions/Solution1ParallelExecutionTest.java`
-
----
-
-## Exercise 2: Fix Test Isolation for Parallel Execution
-
-**Goal:** Make all integration tests pass reliably under parallel execution
-
-**Steps:**
-1. Open `exercises/Exercise2TestIsolationTest.java` and implement the three test methods
-2. Use `@Transactional` on the class for automatic rollback
-3. Generate unique ISBNs with `UUID.randomUUID().toString().substring(0, 13)`
-4. Run `./mvnw test` three times in a row — verify 100% pass rate each time
-
-**Key APIs:**
-- `bookRepository.save(book)` — insert test data directly
-- `mockMvc.perform(get("/api/books/{id}", id))` — call the API
-- `@WithMockUser(roles = "ADMIN")` — for authenticated endpoints
-
-**Solution:** `solutions/Solution2TestIsolationTest.java`
-
----
-
-## Exercise 3: Write a Reusable Testcontainers JUnit 5 Extension
-
-**Goal:** Build a JUnit 5 extension that manages a singleton PostgreSQL container
-
-**Steps:**
-1. Create `SharedPostgresContainerExtension` implementing `BeforeAllCallback`
-2. Hold the `PostgreSQLContainer` in a **static** field (singleton per JVM)
-3. In `beforeAll()`, set system properties so Spring can connect:
-   ```
-   System.setProperty("spring.datasource.url", container.getJdbcUrl());
-   System.setProperty("spring.datasource.username", container.getUsername());
-   System.setProperty("spring.datasource.password", container.getPassword());
-   ```
-4. Register a JVM shutdown hook to stop the container
-5. Use `@ExtendWith(SharedPostgresContainerExtension.class)` in a `@SpringBootTest`
-6. Remove the `@Import(LocalDevTestcontainerConfig.class)` — the extension replaces it
-
-**File:** `exercises/Exercise3ReusableExtensionTest.java`
-**Solution:** `solutions/SharedPostgresContainerExtension.java` + `solutions/Solution3ReusableExtensionTest.java`
