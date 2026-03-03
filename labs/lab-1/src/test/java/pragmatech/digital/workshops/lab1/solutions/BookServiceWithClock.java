@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import pragmatech.digital.workshops.lab1.domain.Book;
 import pragmatech.digital.workshops.lab1.repository.BookRepository;
 import pragmatech.digital.workshops.lab1.service.BookAlreadyExistsException;

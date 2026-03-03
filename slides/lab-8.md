@@ -82,7 +82,7 @@ class OutputCaptureTest {
 
 ---
 
-# Mutation Testing with PIT
+## Mutation Testing with PIT
 
 **The problem:** 100% line coverage ≠ good tests. Weak assertions can still pass.
 
@@ -99,15 +99,13 @@ void shouldReturnFee() {
 ```bash
 cd labs/lab-8
 ./mvnw pitest:mutationCoverage
-# Opens target/pit-reports/index.html
+# Open target/pit-reports/index.html
 ```
 
-> **A mutation is "killed"** when at least one test fails because of the mutation.
-> **A surviving mutant** exposes a gap in your test suite.
 
 ---
 
-## PIT in Action — `LateReturnFeeCalculator`
+## PIT in Action - `LateReturnFeeCalculator`
 
 ```java
 // Production code with multiple fee tiers
@@ -125,7 +123,8 @@ public BigDecimal calculateFee(Book book, LocalDate borrowedDate) {
 
 **PIT mutates conditionals** (`<= 7` → `< 7`, `<= 14` → `< 14`) — boundary tests are essential.
 
-**Pro tip:** Use `Clock` injection instead of `LocalDate.now()` for deterministic tests.
+> **A mutation is "killed"** when at least one test fails because of the mutation.
+> **A surviving mutant** exposes a gap in your test suite.
 
 ---
 
@@ -194,20 +193,13 @@ class RecordApplicationEventsTest {
 
 ## `ApplicationContextRunner`
 
-Test **auto-configuration and conditional beans** without starting a full Spring Boot context.
+Test **auto-configuration and conditional beans** without starting a full context.
 
 ```java
 class ApplicationContextRunnerTest {
 
   private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
     .withUserConfiguration(ConditionalBookImportConfig.class); // ← Minimal slice
-
-  @Test
-  void shouldNotHaveBookImportBeanWhenPropertyIsAbsent() {
-    contextRunner.run(context ->
-      assertThat(context).doesNotHaveBean("bookImportEnabled")
-    );
-  }
 
   @Test
   void shouldHaveBookImportBeanWhenPropertyIsEnabled() {
@@ -220,7 +212,7 @@ class ApplicationContextRunnerTest {
 }
 ```
 
-**Runs in milliseconds** — ideal for testing `@ConditionalOnProperty`, `@ConditionalOnClass`, `@ConditionalOnMissingBean`.
+**Runs in milliseconds** - ideal for testing `@ConditionalOnProperty`, `@ConditionalOnClass`, `@ConditionalOnMissingBean`.
 
 ---
 
@@ -253,7 +245,7 @@ class ApplicationContextRunnerTest {
 
 ---
 
-## ArchUnit — Code Examples
+## ArchUnit - Code Examples
 
 ```java
 @AnalyzeClasses(
@@ -535,7 +527,7 @@ log.info("Book created");
 **Good observability checklist:**
 - Structured JSON logs (Logback + `logstash-logback-encoder`) shipped to a central store
 - Dashboards scoped to **error rate**, **p99 latency**, and **business KPIs** - not CPU graphs
-- Runbooks linked directly from alert notifications
+- [Runbooks](https://github.com/stratospheric-dev/stratospheric/tree/main/docs/runbooks) linked directly from alert notifications
 
 ---
 
@@ -553,13 +545,6 @@ commit → CI (tests pass) → build image → push to registry
               │
               └── automated rollback if health check fails
 ```
-
----
-
-**Rollback triggers to Monitor**
-- Health check endpoint (`/actuator/health`) returns non-200 for > 60 s after deploy
-- Error rate spikes above baseline within the first 5 minutes
-- P99 latency exceeds SLO threshold post-deploy
 
 ---
 
@@ -600,7 +585,9 @@ Requires feature-flag or traffic-splitting infrastructure (Nginx, Istio, AWS ALB
 ## Feature Flags: Decouple Deployment from Release
 
 **Deployment** = shipping code to production. 
-**Release** = making a feature visible to users. Feature flags let you do both independently.
+**Release** = making a feature visible to users. 
+
+Feature flags let you do both independently.
 
 ```java
 if (featureFlags.isEnabled("new-book-search", userId)) {
@@ -727,6 +714,23 @@ The goal is not zero failures - it is **fast, automatic recovery** when failures
 
 
 ---
+
+## Don't Leave Empty-Handed
+
+![bg h:720 w:450 right:33%](assets/tsbad-cover.png)
+
+
+- Get the complementary **Testing Spring Boot Applications Demystified** for free
+
+- 120+ Pages with practical hands-on advice to ship code with confidence
+
+- Get the eBook by joining our [newsletter](https://rieckpil.de/free-spring-boot-testing-book/) and receive further Spring Boot testing-related tips & tricks
+
+![center h:200 w:200](assets/newsletter-signup-qr.png)
+
+---
+
+<!-- paginate: false -->
 
 ## Joyful Testing!
 

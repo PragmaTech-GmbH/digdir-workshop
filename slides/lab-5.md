@@ -46,10 +46,10 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 - 9:00 - 10:30: **Integration Testing Continued - Verify the Entire Application**
 - 10:30 - 11:00: **Coffee Break & Time for Exercises**
 - 11:00 - 12:30: **Understanding Spring TestContext Context Caching for fast Tests**
-- 12:30 - 13:30: **Lunch**
+- 12:30 - 13:30: **Lunch & Time for Exercises**
 - 13:30 - 15:00: **Strategies for Fast and Reproducible Spring Boot Test Suites**
 - 15:00 - 15:30: **Coffee Break & Time for Exercises**
-- 15:30 - 17:00: **General Spring Boot Testing Tips & Tricks and Q&A**
+- 15:30 - 16:30: **General Spring Boot Testing Tips & Tricks and Q&A**
 
 Each 90-minute lab session will include a mix of explanations, demonstrations, and hands-on exercises.
 
@@ -461,4 +461,5 @@ pragmatech.digital.workshops.lab5.experiment.customizer.SharedInfrastructureCust
 - Navigate to the `labs/lab-5` folder and complete the tasks in the `README`
 - **Exercise 1**: Implement an integration test with `MockMvc` (MOCK environment, `@Transactional`)
 - **Exercise 2**: Implement the same scenario with `WebTestClient` (RANDOM_PORT, manual cleanup)
+- **Exercise 3** (Optional): Implement the exercise from lab 4 to learn how to use WireMock
 - Time boxed: until the end of the coffee break

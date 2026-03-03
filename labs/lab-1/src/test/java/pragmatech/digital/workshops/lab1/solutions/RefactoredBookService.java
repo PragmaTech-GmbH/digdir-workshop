@@ -8,6 +8,7 @@ import pragmatech.digital.workshops.lab1.repository.BookRepository;
 import pragmatech.digital.workshops.lab1.service.BookAlreadyExistsException;
 import pragmatech.digital.workshops.lab1.util.TimeProvider;
 
+import static java.time.DayOfWeek.SATURDAY;
 import static java.time.DayOfWeek.SUNDAY;
 
 public class RefactoredBookService {

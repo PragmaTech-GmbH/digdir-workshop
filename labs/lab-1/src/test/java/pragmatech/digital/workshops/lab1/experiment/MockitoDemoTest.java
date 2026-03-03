@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import pragmatech.digital.workshops.lab1.domain.Book;
 import pragmatech.digital.workshops.lab1.repository.BookRepository;
@@ -23,11 +24,13 @@ class MockitoDemoTest {
   @Mock
   private BookRepository bookRepository;
 
+  // public int count() -> int -> 0
+  // public Integer count() -> null
+
   @InjectMocks
   private BookService bookService;
 
   @Test
-  @Disabled("Disabled to prevent test failure due to Sunday restriction in BookService")
   void shouldReturnBookWhenFound() {
     // Arrange
     when(bookRepository.findByIsbn("1234")).thenReturn(Optional.empty());

@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
-// @EnableJpaAuditing -> keep this class clean and outsource configuration to a separate class
+//@EnableJpaAuditing
 @SpringBootApplication
 public class Lab3Application {
 

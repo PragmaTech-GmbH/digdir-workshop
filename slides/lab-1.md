@@ -39,9 +39,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 # Organization
 
-- Hotel WiFi: `TBD` Password: `TBD`
 - Slides & Code will be shared
-- Sharing links during the workshop: 
 - Please interrupt me any time if you have questions or want to share your experience
 - Workshop lab requirements
   - Java 21
@@ -156,6 +154,28 @@ Notes:
 
 ---
 
+
+![bg right:33%](assets/why-test-software.jpg)
+
+# Why Test Software?
+
+---
+
+
+![bg right:33%](assets/ai-image.jpg)
+
+
+## Automated Testing in the AI Era
+
+- AI generates the code; you own the consequences.
+- Co-pilots don’t carry pagers. You do.
+- The faster the code is generated, the faster you need to prove it’s correct.
+- AI is the accelerator; your test suite is the brakes. You can't drive fast without both.
+- Mass-produced code without (the correct) mass-produced tests is just technical debt at scale.
+
+---
+
+
 ### Common Testing Misconceptions
 
 - Testing is only for finding bugs
@@ -232,7 +252,28 @@ Good tests don't just catch bugs - they give you **fast feedback** and **confide
 
 ---
 
+## Maven Coordinates
 
+```xml
+<plugin>
+  <groupId>org.apache.maven.plugins</groupId>
+  <artifactId>maven-surefire-plugin</artifactId>
+</plugin>
+<plugin>
+  <groupId>org.apache.maven.plugins</groupId>
+  <artifactId>maven-failsafe-plugin</artifactId>
+  <executions>
+    <execution>
+      <goals>
+        <goal>integration-test</goal>
+        <goal>verify</goal>
+      </goals>
+    </execution>
+  </executions>
+</plugin>
+```
+
+---
 
 <!-- _class: section -->
 
@@ -740,7 +781,7 @@ public class TimingExtension implements BeforeTestExecutionCallback, AfterTestEx
   - IDE of your choice (I can support you with IntelliJ IDEA)
   - Java 21
   - Docker Engine configured to run with Testcontainers
-- Work locally or use GitHub Codespaces (120 hours/month free) as a fallback if you have trouble setting up your local environment
+- Work locally or use GitHub Codespaces (120 hours/month free) as a fallback if you have trouble setting up your local environment (don't forget to remove the Codespace after the workshop to avoid running out of hours)
 - Fore Codespaces, pick at least 4-Cores (16 GB RAM) and region `Europe West`
 
 

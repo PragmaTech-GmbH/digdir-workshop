@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
  * <ol>
  *   <li>Check the junit-platform.properties file in src/test/resources</li>
  *   <li>Run all tests and observe parallel execution in the log output</li>
+ *   <li>Consult <a href="https://docs.junit.org/6.0.3/writing-tests/parallel-execution.html">JUnit Docs</a></li>
  *   <li>Experiment with different parallelism strategies:
  *     <ul>
  *       <li>a) Classes concurrent, methods same_thread (default - current setting)</li>
