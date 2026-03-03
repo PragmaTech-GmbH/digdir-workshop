@@ -125,9 +125,8 @@ class BookControllerTest {
             "isbn": "123-1234567890",
             "title": "Test Book",
             "author": "Test Author",
-            "publishedDate": "2028-01-01"
+            "publishedDate": "2024-01-01"
           }
-
           """))
       .andExpect(status().isCreated())
       .andExpect(header().string("Location", containsString("/api/books/1")));
