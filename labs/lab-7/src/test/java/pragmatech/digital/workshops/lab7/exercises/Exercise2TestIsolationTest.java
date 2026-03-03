@@ -19,7 +19,6 @@ import pragmatech.digital.workshops.lab7.repository.BookRepository;
  *
  * <p>Tasks:
  * <ol>
- *   <li>Identify tests that fail when run in parallel (shared database state)</li>
  *   <li>Apply isolation strategies:
  *     <ul>
  *       <li>a) Use @Transactional for automatic rollback after each test</li>

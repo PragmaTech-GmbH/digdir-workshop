@@ -45,7 +45,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 **Goal**: Reduce build time by running tests concurrently
 
-Two independent mechanisms — they work at different levels:
+Two independent mechanisms - they work at different levels:
 
 | Mechanism | Level | Isolation |
 |---|---|---|
@@ -70,9 +70,9 @@ Splits tests across multiple **separate JVM processes**:
 </plugin>
 ```
 
-- `forkCount=1` — default: one JVM for all tests
-- `forkCount=2` — two JVMs running in parallel
-- `forkCount=1C` — one JVM per available CPU core (dynamic)
+- `forkCount=1` - default: one JVM for all tests
+- `forkCount=2` - two JVMs running in parallel
+- `forkCount=1C` - one JVM per available CPU core (dynamic)
 
 > **Maven Failsafe** works the same way for `*IT.java` integration tests.
 
@@ -266,9 +266,7 @@ class BookIT {
 
 ---
 
-## Optimize Containers Time
-
-### Correct Usage of Testcontainers
+# Correct Usage of Testcontainers
 
 ---
 
@@ -402,9 +400,7 @@ testcontainers.reuse.enable=true
 
 ## Tip 1: Hide Test Output, Show on Failure
 
-By default, all test output floods the console. 
-
-Redirect it to files:
+By default, all test output floods the console. We can redirect it to files:
 
 ```xml
 <plugin>
@@ -415,6 +411,14 @@ Redirect it to files:
     <trimStackTrace>false</trimStackTrace>
   </configuration>
 </plugin>
+```
+
+```yaml
+# as a last step on GitHub actions
+- name: Log test output on failure
+  if: failure() || cancelled()
+  run: find . -type f -path "*test-reports/*-output.txt" -exec tail -n +1 {} +
+
 ```
 
 ---
@@ -532,6 +536,90 @@ Separate CI-specific settings from the default developer experience:
 # GitHub Actions Best Practices
 
 ---
+
+## GHA Workflow Design: Start Pragmatic
+
+One file, one workflow - perfectly fine for most projects:
+
+```yaml
+# .github/workflows/build.yml
+name: Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { java-version: '21', distribution: 'temurin', cache: maven }
+      - run: ./mvnw verify
+```
+
+**Start here.** Measure total build time. Only split when you have a concrete reason (too slow, unrelated failure domains, different schedules).
+
+---
+
+## GHA Workflow Design: When to Split
+
+Once the single workflow grows unwieldy, extract by **concern and cadence**:
+
+```text
+.github/workflows/
+  build.yml          ← on: push/PR — compile + unit + integration tests
+  coding-standards.yml ← on: push/PR — Checkstyle, SpotBugs, ArchUnit
+  nightly.yml        ← on: schedule — slow E2E, mutation tests, full matrix
+  deploy.yml         ← on: push to main — build image + deploy to staging
+```
+
+Separate workflows run **in parallel** automatically - no extra config needed.
+
+---
+
+## Off-topic: pre-commit — Catch Issues Before You Push
+
+[pre-commit](https://pre-commit.com) runs checks automatically on `git commit`, before code ever reaches CI:
+
+```yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/ejba/pre-commit-maven
+    hooks:
+      - id: maven
+        args: ['-f pom.xml spotless:apply']
+``` 
+
+Style violations and formatting errors fail **locally in milliseconds** - not 5 minutes into a CI run. Less noise in PRs, faster feedback loop.
+
+
+---
+
+## Best Practice 0: Never Go Stale
+
+**Deploy or run at least once a week** - even if nobody pushed code.
+
+```yaml
+# .github/workflows/nightly.yml
+name: Nightly Verification
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # Every Monday at 03:00 UTC
+  workflow_dispatch:       # Allow manual trigger
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+```
+
+Stale pipelines break silently: secrets expire, base images get security patches, dependency resolution drifts. A weekly run catches this **before** it blocks a real release.
+
+---
+
 
 ## Best Practice 1: Always Set a Job Timeout
 

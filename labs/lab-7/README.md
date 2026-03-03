@@ -2,16 +2,16 @@
 
 ## Learning Objectives
 
-- Configure JUnit 5 parallel test execution via `junit-platform.properties`
-- Understand the difference between JUnit 5 thread-level parallelism and Maven Surefire `forkCount` process-level forking
+- Configure JUnit 6 parallel test execution via `junit-platform.properties`
+- Understand the difference between JUnit 6 thread-level parallelism and Maven Surefire `forkCount` process-level forking
 - Identify and fix test isolation issues caused by shared database state
 - Apply `@Transactional` and UUID-based unique data as complementary isolation strategies
 
 ## Key Concepts
 
-### JUnit 5 Parallel Execution
+### JUnit 6 Parallel Execution
 
-JUnit 5 supports running tests in parallel at both the class level and the method level. Configuration lives in `src/test/resources/junit-platform.properties`.
+JUnit 6 supports running tests in parallel at both the class level and the method level. Configuration lives in `src/test/resources/junit-platform.properties`.
 
 There are two independent axes of parallelism:
 
@@ -71,12 +71,12 @@ src/test/resources/
 
 ### Exercise 1: Configure and Observe Parallel Test Execution
 
-Understand JUnit 5 parallel execution configuration and observe its effect on thread allocation.
+Understand JUnit 6 parallel execution configuration and observe its effect on thread allocation.
 
 **Tasks:**
 1. Open `src/test/resources/junit-platform.properties` and review the current settings
 2. Open `Exercise1ParallelExecutionTest.java` — the test methods print the current thread name
-3. Run `mvn test` and observe which threads each test class runs on in the console output
+3. Run `mvn test` or within IntelliJ and observe which threads each test class runs on in the console output
 4. Try different parallelism strategies by modifying `junit-platform.properties`:
    - Classes concurrent, methods `same_thread` (current default)
    - Both classes and methods `concurrent`
