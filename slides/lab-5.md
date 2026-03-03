@@ -41,6 +41,10 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ---
 
+## Don't forget to pull the latest changes from `main`
+
+---
+
 ### Planned Timeline for the Second Workshop Day
 
 - 9:00 - 10:30: **Integration Testing Continued - Verify the Entire Application**
@@ -51,7 +55,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 - 15:00 - 15:30: **Coffee Break & Time for Exercises**
 - 15:30 - 16:30: **General Spring Boot Testing Tips & Tricks and Q&A**
 
-Each 90-minute lab session will include a mix of explanations, demonstrations, and hands-on exercises.
+Each lab session will include a mix of explanations, demonstrations, and hands-on exercises.
 
 ---
 
