@@ -32,9 +32,6 @@ class BookRepositoryTest {
   @Container
   @ServiceConnection
   static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-    .withDatabaseName("testdb")
-    .withUsername("test")
-    .withPassword("test")
     .withInitScript("init-postgres.sql");
 
   @Autowired

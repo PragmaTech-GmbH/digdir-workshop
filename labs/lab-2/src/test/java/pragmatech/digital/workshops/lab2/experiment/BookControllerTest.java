@@ -114,20 +114,21 @@ class BookControllerTest {
   @Test
   void shouldReturnCreatedWithLocationWhenCreatingBookWithValidData() throws Exception {
     // Arrange
-    BookCreationRequest request = new BookCreationRequest(
-      "123-1234567890",
-      "Test Book",
-      "Test Author",
-      LocalDate.of(2020, 1, 1)
-    );
-
     when(bookService.createBook(any(BookCreationRequest.class))).thenReturn(1L);
 
     // Act & Assert
     mockMvc.perform(post("/api/books")
         .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER"))
         .contentType(MediaType.APPLICATION_JSON)
-        .content(objectMapper.writeValueAsString(request)))
+        .content("""
+          {
+            "isbn": "123-1234567890",
+            "title": "Test Book",
+            "author": "Test Author",
+            "publishedDate": "2028-01-01"
+          }
+
+          """))
       .andExpect(status().isCreated())
       .andExpect(header().string("Location", containsString("/api/books/1")));
   }

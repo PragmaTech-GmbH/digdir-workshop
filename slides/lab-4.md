@@ -402,4 +402,4 @@ class SampleIT {
 
 ## Day 2 starts at 09:00
 
-_No lab exercise for Lab 4 - content feeds directly into tomorrow's exercises_
+_Optional exercise for lab 4: Learn how to use WireMock with `Exercise1WireMockTest`_

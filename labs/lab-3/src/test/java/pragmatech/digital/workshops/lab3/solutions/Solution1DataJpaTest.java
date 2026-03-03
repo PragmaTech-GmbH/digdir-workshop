@@ -4,17 +4,15 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import pragmatech.digital.workshops.lab3.entity.Book;
 import pragmatech.digital.workshops.lab3.entity.BookStatus;
 import pragmatech.digital.workshops.lab3.repository.BookRepository;
@@ -30,15 +28,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @Testcontainers
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class Solution1DataJpaTest {
 
   @Container
   @ServiceConnection
-  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-    .withDatabaseName("testdb")
-    .withUsername("test")
-    .withPassword("test")
+  static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine")
     .withInitScript("init-postgres.sql");
 
   @Autowired

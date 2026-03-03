@@ -21,6 +21,23 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 ---
 
+### Updated Timeline for the First Workshop Day
+
+Completed:
+
+- 9:00 - 10:30: **Testing Basics and Unit Testing with Spring Boot**
+- 10:30 - 11:00: **Coffee Break & Time for Exercises**
+- 11:00 - 12:30: **Sliced Testing - Introduction and Verifying the Web Layer**
+- 12:30 - 13:30: **Lunch & Time for Exercises**
+
+Next:
+
+- 13:30 - 15:00: **Sliced Testing Continued, including Testing the Persistence Layer**
+- 15:00 - 15:30: **Coffee Break & Time for Exercises**
+- **15:30 - 16:30:** (Updated) **Integration Testing - Introduction and Strategies to Start the Entire Context**
+
+---
+
 ## Discuss Exercises from Lab 2
 
 - Exercise 1: `@WebMvcTest`

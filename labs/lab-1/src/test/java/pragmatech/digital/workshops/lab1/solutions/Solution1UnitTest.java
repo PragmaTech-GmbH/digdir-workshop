@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Optional;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +24,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static tools.jackson.databind.ext.javatime.deser.JSR310StringParsableDeserializer.ZONE_ID;
 
 @ExtendWith(MockitoExtension.class)
 class Solution1UnitTest {
@@ -53,7 +51,6 @@ class Solution1UnitTest {
 
   @Test
   @DisplayName("Should create a book when ISBN does not exist")
-  @Disabled("Disabled to prevent test failure due to Sunday restriction in BookService")
   void shouldCreateBookWhenIsbnDoesNotExist() {
     // Arrange
     BookService cut = new BookService(bookRepository);
@@ -87,7 +84,8 @@ class Solution1UnitTest {
   void shouldThrowExceptionWhenTryingToRegisterBookOnSunday() {
     // Arrange
     TimeProvider timeProvider = mock(TimeProvider.class);
-    when(timeProvider.getCurrentDate()).thenReturn(LocalDate.of(2026, 3, 1)); // A Sunday
+    when(timeProvider.getCurrentDate())
+      .thenReturn(LocalDate.of(2026, 3, 1)); // A Sunday
 
     RefactoredBookService cut = new RefactoredBookService(bookRepository, timeProvider);
     String isbn = "9780134685991";

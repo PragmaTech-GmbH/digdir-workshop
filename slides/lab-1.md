@@ -39,9 +39,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 
 # Organization
 
-- Hotel WiFi: `TBD` Password: `TBD`
 - Slides & Code will be shared
-- Sharing links during the workshop: 
 - Please interrupt me any time if you have questions or want to share your experience
 - Workshop lab requirements
   - Java 21
