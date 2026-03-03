@@ -533,6 +533,33 @@ Separate CI-specific settings from the default developer experience:
 
 ---
 
+## Tip 7: Build Multi-Module Projects in Parallel
+
+Maven can build **independent modules concurrently** with the `-T` flag:
+
+```bash
+# 4 threads — good starting point for most multi-module projects
+./mvnw verify -T 4
+
+# Scale to available CPU cores (1 thread per core)
+./mvnw verify -T 1C
+
+# Combine with CI profile
+./mvnw verify -T 1C -P ci
+```
+
+---
+
+
+Maven resolves the module dependency graph and builds modules that don't depend on each other **at the same time**.
+
+**Caveats:**
+- Modules with inter-dependencies are still built sequentially
+- Plugin output interleaves - use `-T 1C` with `redirectTestOutputToFile`
+- Use the `mvnd` daemon for improved console output
+
+---
+
 # GitHub Actions Best Practices
 
 ---
