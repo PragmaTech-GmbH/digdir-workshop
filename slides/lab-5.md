@@ -53,7 +53,7 @@ Philip Riecks - [PragmaTech GmbH](https://pragmatech.digital/) - [@rieckpil](htt
 - 12:30 - 13:30: **Lunch & Time for Exercises**
 - 13:30 - 15:00: **Strategies for Fast and Reproducible Spring Boot Test Suites**
 - 15:00 - 15:30: **Coffee Break & Time for Exercises**
-- 15:30 - 16:30: **General Spring Boot Testing Tips & Tricks and Q&A**
+- 15:30 - 17:00: **General Spring Boot Testing Tips & Tricks and Q&A**
 
 Each lab session will include a mix of explanations, demonstrations, and hands-on exercises.
 

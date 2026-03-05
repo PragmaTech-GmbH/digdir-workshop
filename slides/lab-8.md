@@ -732,13 +732,15 @@ The goal is not zero failures - it is **fast, automatic recovery** when failures
 
 <!-- paginate: false -->
 
-## Joyful Testing!
+## Tusen takk!
 
 Workshop materials are on [GitHub](https://github.com/PragmaTech-GmbH/digdir-workshop/).
 
 The rendered slides are in the `slides/` folder.
 
 ![bg right:33%](assets/end.jpg)
+
+Joyful testing!
 
 Reach out any time via:
 - [LinkedIn](https://www.linkedin.com/in/rieckpil) (Philip Riecks)
